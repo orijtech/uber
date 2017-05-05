@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/orijtech/uber"
+	"github.com/orijtech/uber/v1"
 )
 
 func Example_client_ListPaymentMethods() {
