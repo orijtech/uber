@@ -144,3 +144,31 @@ func Example_client_EstimatePrice() {
 		}
 	}
 }
+
+func Example_client_RetrieveMyProfile() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	myProfile, err := client.RetrieveMyProfile()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Here is my profile: %#v\n", myProfile)
+}
+
+func Example_client_ApplyPromoCode() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	appliedPromoCode, err := client.ApplyPromoCode("uberd340ue")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("AppliedPromoCode: %#v\n", appliedPromoCode)
+}

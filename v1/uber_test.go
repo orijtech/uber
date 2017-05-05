@@ -17,12 +17,14 @@ package uber_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/orijtech/uber/v1"
 )
@@ -145,6 +147,126 @@ func TestEstimatePrice(t *testing.T) {
 	}
 }
 
+func TestRetrieveMyProfile(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: retrieveProfileRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	invalidToken := fmt.Sprintf("%v", time.Now().Unix())
+
+	tests := [...]struct {
+		wantErr     bool
+		bearerToken string
+		want        *uber.Profile
+	}{
+		0: {
+			bearerToken: testToken1,
+			want:        profileFromFileByToken(testToken1),
+		},
+		1: {
+			bearerToken: invalidToken,
+			wantErr:     true,
+		},
+	}
+
+	for i, tt := range tests {
+		client.SetBearerToken(tt.bearerToken)
+		prof, err := client.RetrieveMyProfile()
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		gotBlob, wantBlob := jsonSerialize(prof), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
+func TestApplyPromoCode(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: applyPromoCodeRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	tests := [...]struct {
+		wantErr   bool
+		promoCode string
+		want      *uber.PromoCode
+	}{
+		0: {
+			promoCode: promoCode1,
+			want:      promoCodeFromFileByToken(promoCode1),
+		},
+		1: {
+			// Try with a random promo code that's unauthorized.
+			promoCode: fmt.Sprintf("%v", time.Now().Unix()),
+			wantErr:   true,
+		},
+	}
+
+	for i, tt := range tests {
+		appliedPromoCode, err := client.ApplyPromoCode(tt.promoCode)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		gotBlob, wantBlob := jsonSerialize(appliedPromoCode), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
+func profileTokenPath(tokenSuffix string) string {
+	return fmt.Sprintf("./testdata/profile-%s.json", tokenSuffix)
+}
+
+func promoCodePath(suffix string) string {
+	return fmt.Sprintf("./testdata/promo-code-%s.json", suffix)
+}
+
+func promoCodeFromFileByToken(promoCodeSuffix string) *uber.PromoCode {
+	path := promoCodePath(promoCodeSuffix)
+	promoCode := new(uber.PromoCode)
+	if err := readFromFileAndDeserialize(path, promoCode); err != nil {
+		return nil
+	}
+	return promoCode
+}
+
+func profileFromFileByToken(tokenSuffix string) *uber.Profile {
+	path := profileTokenPath(tokenSuffix)
+	prof := new(uber.Profile)
+	if err := readFromFileAndDeserialize(path, prof); err != nil {
+		return nil
+	}
+	return prof
+}
+
 func jsonSerialize(v interface{}) []byte {
 	blob, _ := json.Marshal(v)
 	return blob
@@ -171,6 +293,10 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.listPaymentMethodRoundTrip(req)
 	case estimatePriceRoute:
 		return trt.estimatePriceRoundTrip(req)
+	case retrieveProfileRoute:
+		return trt.retrieveProfileRoundTrip(req)
+	case applyPromoCodeRoute:
+		return trt.applyPromoCodeRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -181,33 +307,67 @@ var (
 	respUnauthorizedToken = makeResp("Unauthorized token", http.StatusUnauthorized)
 )
 
-func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Response, error) {
-	if req.Method != "GET" {
-		return makeResp("only \"GET\" allowed", http.StatusMethodNotAllowed), nil
+func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Response, string, error) {
+	if req.Method != wantMethod {
+		msg := fmt.Sprintf("only %q allowed not %q", wantMethod, req.Method)
+		return makeResp(msg, http.StatusMethodNotAllowed), "", nil
 	}
 
 	// Check the authorization next
 	bearerTokenSplit := strings.Split(req.Header.Get("Authorization"), "Bearer")
 	// Expecting a successful split to be of the form {"", " <The token>"}
 	if len(bearerTokenSplit) < 2 {
-		return respNoBearerTokenSet, nil
+		return respNoBearerTokenSet, "", nil
 	}
 
 	token := strings.TrimSpace(bearerTokenSplit[len(bearerTokenSplit)-1])
 	if token == "" {
-		return respNoBearerTokenSet, nil
+		return respNoBearerTokenSet, "", nil
 	}
 
 	if unauthorizedToken(token) {
-		return respUnauthorizedToken, nil
+		return respUnauthorizedToken, "", nil
 	}
 
 	// All passed nothing to report back.
-	return nil, nil
+	return nil, token, nil
+}
+
+func (trt *tRoundTripper) applyPromoCodeRoundTrip(req *http.Request) (*http.Response, error) {
+	authResp, _, err := prescreenAuthAndMethod(req, "PATCH")
+	if authResp != nil || err != nil {
+		return authResp, err
+	}
+	if req.Body != nil {
+		defer req.Body.Close()
+	}
+
+	slurp, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return makeResp(err.Error(), http.StatusInternalServerError), nil
+	}
+
+	preq := new(uber.PromoCodeRequest)
+	if err := json.Unmarshal(slurp, preq); err != nil {
+		return makeResp(err.Error(), http.StatusInternalServerError), nil
+	}
+
+	resp := responseFromFileContent(promoCodePath(preq.CodeToApply))
+	return resp, nil
+
+}
+
+func (trt *tRoundTripper) retrieveProfileRoundTrip(req *http.Request) (*http.Response, error) {
+	authResp, token, err := prescreenAuthAndMethod(req, "GET")
+	if authResp != nil || err != nil {
+		return authResp, err
+	}
+	resp := responseFromFileContent(profileTokenPath(token))
+	return resp, nil
 }
 
 func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 	resp := responseFromFileContent("./testdata/estimate-1.json")
@@ -215,7 +375,7 @@ func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Respo
 }
 
 func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 	resp := responseFromFileContent("./testdata/list-payments-1.json")
@@ -271,6 +431,8 @@ func readFromFileAndDeserialize(path string, save interface{}) error {
 
 const (
 	testToken1 = "TEST_TOKEN-1"
+
+	promoCode1 = "pc1"
 )
 
 var authorizedTokens = map[string]bool{
@@ -283,6 +445,8 @@ func unauthorizedToken(token string) bool {
 }
 
 const (
-	listPaymentMethods = "list-payment-methods"
-	estimatePriceRoute = "estimate-prices"
+	listPaymentMethods   = "list-payment-methods"
+	estimatePriceRoute   = "estimate-prices"
+	retrieveProfileRoute = "retrieve-profile"
+	applyPromoCodeRoute  = "apply-promo-code"
 )

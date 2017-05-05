@@ -63,6 +63,13 @@ func (c *Client) SetHTTPRoundTripper(rt http.RoundTripper) {
 	c.Unlock()
 }
 
+func (c *Client) SetBearerToken(token string) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.token = token
+}
+
 func (c *Client) httpClient() *http.Client {
 	c.RLock()
 	rt := c.rt
