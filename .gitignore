@@ -22,3 +22,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# Text editor and miscellaneous files
+*.sw[op]
+*.DS_Store
