@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/orijtech/uber"
+	"github.com/orijtech/uber/v1"
 )
 
 func TestListPaymentMethods(t *testing.T) {
