@@ -39,3 +39,72 @@ func Example_client_ListPaymentMethods() {
 			i, method.ID, method.PaymentMethod, method.Description)
 	}
 }
+
+func Example_client_ListHistory() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pagesChan, cancelChan, err := client.ListHistory(&uber.TripHistoryRequest{
+		MaxPages:     4,
+		LimitPerPage: 10,
+		StartOffset:  0,
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for page := range pagesChan {
+		if page.Err != nil {
+			fmt.Printf("Page: #%d err: %v\n", page.PageNumber, page.Err)
+			continue
+		}
+
+		fmt.Printf("Page: #%d\n\n", page.PageNumber)
+		for i, trip := range page.Trips {
+			startCity := trip.StartCity
+			if startCity.Name == "Tokyo" {
+				fmt.Printf("aha found the first Tokyo trip, canceling any more requests!: %#v\n", trip)
+				cancelChan <- true
+				break
+			}
+
+			// Otherwise, continue listing
+			fmt.Printf("Trip: #%d ==> %#v place: %#v\n", i, trip, startCity)
+		}
+	}
+}
+
+func Example_client_ListAllMyHistory() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pagesChan, cancelChan, err := client.ListAllMyHistory()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for page := range pagesChan {
+		if page.Err != nil {
+			fmt.Printf("Page: #%d err: %v\n", page.PageNumber, page.Err)
+			continue
+		}
+
+		fmt.Printf("Page: #%d\n\n", page.PageNumber)
+		for i, trip := range page.Trips {
+			startCity := trip.StartCity
+			if startCity.Name == "Edmonton" {
+				fmt.Printf("aha found the trip from Edmonton, canceling the rest!: %#v\n", trip)
+				cancelChan <- true
+				break
+			}
+
+			// Otherwise, continue listing
+			fmt.Printf("Trip: #%d ==> %#v place: %#v\n", i, trip, startCity)
+		}
+	}
+}

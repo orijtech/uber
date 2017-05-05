@@ -67,6 +67,24 @@ func TestListPaymentMethods(t *testing.T) {
 	}
 }
 
+func TestListHistory(t *testing.T) {
+	t.Skipf("Needs quite detailed data and intricate tests with paging")
+
+	// client, err := uber.NewClient(testToken1)
+	// if err != nil {
+ 	// 	t.Fatalf("initializing client; %v", err)
+	// }
+
+	// if err != nil {
+	// 	t.Fatalf("initializing client; %v", err)
+	// }
+
+	// testingRoundTripper := &tRoundTripper{route: listHistory}
+	// client.SetHTTPRoundTripper(testingRoundTripper)
+
+	// tests := [...]struct{}{}
+}
+
 func jsonSerialize(v interface{}) []byte {
 	blob, _ := json.Marshal(v)
 	return blob
