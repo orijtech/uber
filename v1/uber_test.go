@@ -37,11 +37,11 @@ func TestListPaymentMethods(t *testing.T) {
 	client.SetHTTPRoundTripper(testingRoundTripper)
 
 	tests := [...]struct {
-		wantPaylisting *uber.PaymentListing
-		wantErr        bool
+		want    *uber.PaymentListing
+		wantErr bool
 	}{
 		0: {
-			wantPaylisting: paymentListingFromFile("./testdata/list-payments-1.json"),
+			want: paymentListingFromFile("./testdata/list-payments-1.json"),
 		},
 	}
 
@@ -60,7 +60,7 @@ func TestListPaymentMethods(t *testing.T) {
 		}
 
 		gotBytes := jsonSerialize(pml)
-		wantBytes := jsonSerialize(pml)
+		wantBytes := jsonSerialize(tt.want)
 		if !bytes.Equal(gotBytes, wantBytes) {
 			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBytes, wantBytes)
 		}
@@ -83,6 +83,66 @@ func TestListHistory(t *testing.T) {
 	// client.SetHTTPRoundTripper(testingRoundTripper)
 
 	// tests := [...]struct{}{}
+}
+
+func TestEstimatePrice(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: estimatePriceRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	tests := [...]struct {
+		ereq    *uber.EstimateRequest
+		wantErr bool
+		want    []*uber.Estimate
+	}{
+		0: {
+			ereq: &uber.EstimateRequest{
+				StartLatitude:  37.7752315,
+				EndLatitude:    37.7752415,
+				StartLongitude: -122.418075,
+				EndLongitude:   -122.518075,
+			},
+			want: estimateFromFile("./testdata/estimate-1.json"),
+		},
+		1: {
+			ereq:    nil,
+			wantErr: true,
+		},
+	}
+
+	for i, tt := range tests {
+		estimatesChan, cancelChan, err := client.EstimatePrice(tt.ereq)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d err: %v", i, err)
+			continue
+		}
+
+		firstPage := <-estimatesChan
+		// Then cancel it
+		cancelChan <- true
+
+		if err := firstPage.Err; err != nil {
+			t.Errorf("#%d paging err: %v, firstPage: %#v", i, err, firstPage)
+			continue
+		}
+		estimates := firstPage.Estimates
+
+		gotBlob, wantBlob := jsonSerialize(estimates), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
 }
 
 func jsonSerialize(v interface{}) []byte {
@@ -109,6 +169,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch trt.route {
 	case listPaymentMethods:
 		return trt.listPaymentMethodRoundTrip(req)
+	case estimatePriceRoute:
+		return trt.estimatePriceRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -119,7 +181,7 @@ var (
 	respUnauthorizedToken = makeResp("Unauthorized token", http.StatusUnauthorized)
 )
 
-func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.Response, error) {
+func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Response, error) {
 	if req.Method != "GET" {
 		return makeResp("only \"GET\" allowed", http.StatusMethodNotAllowed), nil
 	}
@@ -140,12 +202,28 @@ func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.R
 		return respUnauthorizedToken, nil
 	}
 
+	// All passed nothing to report back.
+	return nil, nil
+}
+
+func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Response, error) {
+	if authResp, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+		return authResp, err
+	}
+	resp := responseFromFileContent("./testdata/estimate-1.json")
+	return resp, nil
+}
+
+func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.Response, error) {
+	if authResp, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+		return authResp, err
+	}
 	resp := responseFromFileContent("./testdata/list-payments-1.json")
 	return resp, nil
 }
 
 func responseFromFileContent(path string) *http.Response {
-	f, err := os.Open(path)
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return makeResp(err.Error(), http.StatusInternalServerError)
 	}
@@ -153,8 +231,7 @@ func responseFromFileContent(path string) *http.Response {
 	prc, pwc := io.Pipe()
 	go func() {
 		defer pwc.Close()
-		defer f.Close()
-		io.Copy(pwc, f)
+		pwc.Write(data)
 	}()
 
 	resp := makeResp("200 OK", http.StatusOK)
@@ -168,6 +245,14 @@ func paymentListingFromFile(path string) *uber.PaymentListing {
 		return nil
 	}
 	return save
+}
+
+func estimateFromFile(path string) []*uber.Estimate {
+	save := new(uber.EstimatesPage)
+	if err := readFromFileAndDeserialize(path, save); err != nil {
+		return nil
+	}
+	return save.Estimates
 }
 
 func readFromFileAndDeserialize(path string, save interface{}) error {
@@ -199,4 +284,5 @@ func unauthorizedToken(token string) bool {
 
 const (
 	listPaymentMethods = "list-payment-methods"
+	estimatePriceRoute = "estimate-prices"
 )

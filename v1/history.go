@@ -63,7 +63,7 @@ type TripThread struct {
 	Offset int64   `json:"offset"`
 }
 
-type TripHistoryRequest struct {
+type Pager struct {
 	ThrottleDuration time.Duration `json:"-"`
 	LimitPerPage     int64         `json:"limit"`
 	MaxPages         int64         `json:"-"`
@@ -81,7 +81,7 @@ const (
 	DefaultStartOffset  = int64(0)
 )
 
-func (treq *TripHistoryRequest) adjustPageParams() {
+func (treq *Pager) adjustPageParams() {
 	if treq.LimitPerPage <= 0 {
 		treq.LimitPerPage = DefaultLimitPerPage
 	}
@@ -94,8 +94,8 @@ func (c *Client) ListAllMyHistory() (chan *TripThreadPage, chan<- bool, error) {
 	return c.ListHistory(nil)
 }
 
-func (c *Client) ListHistory(threq *TripHistoryRequest) (chan *TripThreadPage, chan<- bool, error) {
-	treq := new(TripHistoryRequest)
+func (c *Client) ListHistory(threq *Pager) (chan *TripThreadPage, chan<- bool, error) {
+	treq := new(Pager)
 	if threq != nil {
 		*treq = *threq
 	}
