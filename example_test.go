@@ -145,6 +145,44 @@ func Example_client_EstimatePrice() {
 	}
 }
 
+func Example_client_EstimateTime() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	estimatesPageChan, cancelChan, err := client.EstimateTime(&uber.EstimateRequest{
+		StartLatitude:  37.7752315,
+		EndLatitude:    37.7752415,
+		StartLongitude: -122.418075,
+		EndLongitude:   -122.518075,
+
+		// Comment out to search only for estimates for: uberXL
+		// ProductID: "821415d8-3bd5-4e27-9604-194e4359a449",
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	itemCount := uint64(0)
+	for page := range estimatesPageChan {
+		if page.Err != nil {
+			fmt.Printf("PageNumber: #%d err: %v", page.PageNumber, page.Err)
+			continue
+		}
+
+		for i, estimate := range page.Estimates {
+			itemCount += 1
+			fmt.Printf("Estimate: #%d ==> %#v\n", i, estimate)
+		}
+
+		if itemCount >= 23 {
+			cancelChan <- true
+		}
+	}
+}
+
 func Example_client_RetrieveMyProfile() {
 	client, err := uber.NewClient()
 	if err != nil {

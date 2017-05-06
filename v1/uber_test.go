@@ -99,7 +99,7 @@ func TestEstimatePrice(t *testing.T) {
 	tests := [...]struct {
 		ereq    *uber.EstimateRequest
 		wantErr bool
-		want    []*uber.Estimate
+		want    []*uber.PriceEstimate
 	}{
 		0: {
 			ereq: &uber.EstimateRequest{
@@ -108,7 +108,7 @@ func TestEstimatePrice(t *testing.T) {
 				StartLongitude: -122.418075,
 				EndLongitude:   -122.518075,
 			},
-			want: estimateFromFile("./testdata/estimate-1.json"),
+			want: priceEstimateFromFile("./testdata/estimate-1.json"),
 		},
 		1: {
 			ereq:    nil,
@@ -118,6 +118,67 @@ func TestEstimatePrice(t *testing.T) {
 
 	for i, tt := range tests {
 		estimatesChan, cancelChan, err := client.EstimatePrice(tt.ereq)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d err: %v", i, err)
+			continue
+		}
+
+		firstPage := <-estimatesChan
+		// Then cancel it
+		cancelChan <- true
+
+		if err := firstPage.Err; err != nil {
+			t.Errorf("#%d paging err: %v, firstPage: %#v", i, err, firstPage)
+			continue
+		}
+		estimates := firstPage.Estimates
+
+		gotBlob, wantBlob := jsonSerialize(estimates), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
+func TestEstimateTime(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: estimateTimeRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	tests := [...]struct {
+		treq    *uber.EstimateRequest
+		wantErr bool
+		want    []*uber.TimeEstimate
+	}{
+		0: {
+			treq: &uber.EstimateRequest{
+				StartLatitude:  37.7752315,
+				EndLatitude:    37.7752415,
+				StartLongitude: -122.418075,
+				EndLongitude:   -122.518075,
+				ProductID:      "a1111c8c-c720-46c3-8534-2fcdd730040d",
+			},
+			want: timeEstimateFromFile("./testdata/time-estimate-1.json"),
+		},
+		1: {
+			treq:    nil,
+			wantErr: true,
+		},
+	}
+
+	for i, tt := range tests {
+		estimatesChan, cancelChan, err := client.EstimateTime(tt.treq)
 		if tt.wantErr {
 			if err == nil {
 				t.Errorf("#%d expecting a non-nil error", i)
@@ -293,6 +354,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.listPaymentMethodRoundTrip(req)
 	case estimatePriceRoute:
 		return trt.estimatePriceRoundTrip(req)
+	case estimateTimeRoute:
+		return trt.estimateTimeRoundTrip(req)
 	case retrieveProfileRoute:
 		return trt.retrieveProfileRoundTrip(req)
 	case applyPromoCodeRoute:
@@ -366,11 +429,19 @@ func (trt *tRoundTripper) retrieveProfileRoundTrip(req *http.Request) (*http.Res
 	return resp, nil
 }
 
+func (trt *tRoundTripper) estimateTimeRoundTrip(req *http.Request) (*http.Response, error) {
+	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+		return authResp, err
+	}
+	resp := responseFromFileContent("./testdata/time-estimate-1.json")
+	return resp, nil
+}
+
 func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Response, error) {
 	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
-	resp := responseFromFileContent("./testdata/estimate-1.json")
+	resp := responseFromFileContent("./testdata/price-estimate-1.json")
 	return resp, nil
 }
 
@@ -406,9 +477,16 @@ func paymentListingFromFile(path string) *uber.PaymentListing {
 	}
 	return save
 }
+func timeEstimateFromFile(path string) []*uber.TimeEstimate {
+	save := new(uber.TimeEstimatesPage)
+	if err := readFromFileAndDeserialize(path, save); err != nil {
+		return nil
+	}
+	return save.Estimates
+}
 
-func estimateFromFile(path string) []*uber.Estimate {
-	save := new(uber.EstimatesPage)
+func priceEstimateFromFile(path string) []*uber.PriceEstimate {
+	save := new(uber.PriceEstimatesPage)
 	if err := readFromFileAndDeserialize(path, save); err != nil {
 		return nil
 	}
@@ -447,6 +525,7 @@ func unauthorizedToken(token string) bool {
 const (
 	listPaymentMethods   = "list-payment-methods"
 	estimatePriceRoute   = "estimate-prices"
+	estimateTimeRoute    = "estimate-times"
 	retrieveProfileRoute = "retrieve-profile"
 	applyPromoCodeRoute  = "apply-promo-code"
 )

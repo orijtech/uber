@@ -24,37 +24,9 @@ import (
 	"github.com/orijtech/otils"
 )
 
-type EstimateRequest struct {
-	StartLatitude  float64 `json:"start_latitude"`
-	StartLongitude float64 `json:"start_longitude"`
-	EndLongitude   float64 `json:"end_longitude"`
-	EndLatitude    float64 `json:"end_latitude"`
-	SeatCount      int     `json:"seat_count"`
-	ProductID      string  `json:"product_id"`
-
-	Pager
-}
-
-type PriceEstimate struct {
-	// ISO 4217 currency code.
-	CurrencyCode otils.NullableString `json:"currency_code"`
-
-	// Formatted string of estimate in local currency of the
-	// start location. Estimate could be a range, a single
-	// number(flat rate) or "Metered" for TAXI.
-	Estimate otils.NullableString `json:"estimate"`
-
-	// Expected activity duration in seconds.
-	DurationSeconds otils.NullableFloat64 `json:"duration"`
-
-	// Minimum price for product.
-	MinimumPrice otils.NullableFloat64 `json:"minimum"`
-
-	// Lower bound of the estimated price.
-	LowEstimate otils.NullableFloat64 `json:"low_estimate"`
-
-	// Upper bound of the estimated price.
-	HighEstimate otils.NullableFloat64 `json:"high_estimate"`
+type TimeEstimate struct {
+	// Expected Time of Arrival for the product (in seconds).
+	ETASeconds otils.NullableFloat64 `json:"estimate"`
 
 	// Unique identifier representing a specific
 	// product for a given longitude and latitude.
@@ -68,18 +40,13 @@ type PriceEstimate struct {
 	// Localized display name of product.
 	LocalizedName string `json:"localized_display_name"`
 
-	// Expected surge multiplier. Surge is active if
-	// SurgeMultiplier is greater than 1. Price estimate
-	// already factors in the surge multiplier.
-	SurgeMultiplier otils.NullableFloat64 `json:"surge_multiplier"`
-
 	LimitPerPage int64 `json:"limit"`
 }
 
-var errNilEstimateRequest = errors.New("expecting a non-nil estimateRequest")
+var errNilTimeEstimateRequest = errors.New("expecting a non-nil timeEstimateRequest")
 
-type PriceEstimatesPage struct {
-	Estimates []*PriceEstimate `json:"prices"`
+type TimeEstimatesPage struct {
+	Estimates []*TimeEstimate `json:"times"`
 
 	Count int64 `json:"count,omitempty"`
 
@@ -87,14 +54,18 @@ type PriceEstimatesPage struct {
 	PageNumber uint64
 }
 
-func (c *Client) EstimatePrice(ereq *EstimateRequest) (chan *PriceEstimatesPage, chan bool, error) {
-	if ereq == nil {
-		return nil, nil, errNilEstimateRequest
+var timeExcludedValues = map[string]bool{
+	"seat_count": true,
+}
+
+func (c *Client) EstimateTime(treq *EstimateRequest) (chan *TimeEstimatesPage, chan bool, error) {
+	if treq == nil {
+		return nil, nil, errNilTimeEstimateRequest
 	}
 
 	pager := new(Pager)
-	if ereq != nil {
-		*pager = ereq.Pager
+	if treq != nil {
+		*pager = treq.Pager
 	}
 
 	// Adjust the paging parameters since they'll be heavily used
@@ -111,7 +82,7 @@ func (c *Client) EstimatePrice(ereq *EstimateRequest) (chan *PriceEstimatesPage,
 	}
 
 	cancelChan := make(chan bool, 1)
-	estimatesPageChan := make(chan *PriceEstimatesPage)
+	estimatesPageChan := make(chan *TimeEstimatesPage)
 	go func() {
 		defer close(estimatesPageChan)
 
@@ -120,40 +91,40 @@ func (c *Client) EstimatePrice(ereq *EstimateRequest) (chan *PriceEstimatesPage,
 
 		canPage := true
 		for canPage {
-			ep := new(PriceEstimatesPage)
-			ep.PageNumber = pageNumber
+			tp := new(TimeEstimatesPage)
+			tp.PageNumber = pageNumber
 
-			qv, err := otils.ToURLValues(ereq)
+			qv, err := otils.ToURLValues(treq)
 			if err != nil {
-				ep.Err = err
-				estimatesPageChan <- ep
+				tp.Err = err
+				estimatesPageChan <- tp
 				return
 			}
 
-			fullURL := fmt.Sprintf("%s/estimates/price?%s", baseURL, qv.Encode())
+			fullURL := fmt.Sprintf("%s/estimates/time?%s", baseURL, qv.Encode())
 			req, err := http.NewRequest("GET", fullURL, nil)
 			if err != nil {
-				ep.Err = err
-				estimatesPageChan <- ep
+				tp.Err = err
+				estimatesPageChan <- tp
 				return
 			}
 
 			slurp, _, err := c.doAuthAndHTTPReq(req)
 			if err != nil {
-				ep.Err = err
-				estimatesPageChan <- ep
+				tp.Err = err
+				estimatesPageChan <- tp
 				return
 			}
 
-			if err := json.Unmarshal(slurp, ep); err != nil {
-				ep.Err = err
-				estimatesPageChan <- ep
+			if err := json.Unmarshal(slurp, tp); err != nil {
+				tp.Err = err
+				estimatesPageChan <- tp
 				return
 			}
 
-			estimatesPageChan <- ep
+			estimatesPageChan <- tp
 
-			if ep.Count <= 0 {
+			if tp.Count <= 0 {
 				// No more items to page
 				return
 			}
