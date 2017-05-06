@@ -302,6 +302,56 @@ func TestApplyPromoCode(t *testing.T) {
 	}
 }
 
+const (
+	requestID1 = "b5512127-a134-4bf4-b1ba-fe9f48f56d9d"
+)
+
+func TestRequestReceipt(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: requestReceiptRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	tests := [...]struct {
+		wantErr   bool
+		requestID string
+		want      *uber.Receipt
+	}{
+		0: {
+			requestID: requestID1,
+			want:      receiptFromFile(requestID1),
+		},
+		1: {
+			// Try with a random requestID.
+			requestID: fmt.Sprintf("%v", time.Now().Unix()),
+			wantErr:   true,
+		},
+	}
+
+	for i, tt := range tests {
+		receipt, err := client.RequestReceipt(tt.requestID)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		gotBlob, wantBlob := jsonSerialize(receipt), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
 func profileTokenPath(tokenSuffix string) string {
 	return fmt.Sprintf("./testdata/profile-%s.json", tokenSuffix)
 }
@@ -360,6 +410,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.retrieveProfileRoundTrip(req)
 	case applyPromoCodeRoute:
 		return trt.applyPromoCodeRoundTrip(req)
+	case requestReceiptRoute:
+		return trt.requestReceiptRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -445,6 +497,24 @@ func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Respo
 	return resp, nil
 }
 
+func (trt *tRoundTripper) requestReceiptRoundTrip(req *http.Request) (*http.Response, error) {
+	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+		return authResp, err
+	}
+
+	pathSplits := strings.Split(req.URL.Path, "/")
+	if len(pathSplits) < 2 {
+		resp := makeResp("expecting the requestID", http.StatusBadRequest)
+		return resp, nil
+	}
+
+	// second last item
+	requestID := pathSplits[len(pathSplits)-2]
+	diskPath := receiptPathFromRequestID(requestID)
+	resp := responseFromFileContent(diskPath)
+	return resp, nil
+}
+
 func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.Response, error) {
 	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
@@ -470,6 +540,10 @@ func responseFromFileContent(path string) *http.Response {
 	return resp
 }
 
+func receiptPathFromRequestID(requestID string) string {
+	return fmt.Sprintf("./testdata/receipt-%s.json", requestID)
+}
+
 func paymentListingFromFile(path string) *uber.PaymentListing {
 	save := new(uber.PaymentListing)
 	if err := readFromFileAndDeserialize(path, save); err != nil {
@@ -477,6 +551,7 @@ func paymentListingFromFile(path string) *uber.PaymentListing {
 	}
 	return save
 }
+
 func timeEstimateFromFile(path string) []*uber.TimeEstimate {
 	save := new(uber.TimeEstimatesPage)
 	if err := readFromFileAndDeserialize(path, save); err != nil {
@@ -491,6 +566,15 @@ func priceEstimateFromFile(path string) []*uber.PriceEstimate {
 		return nil
 	}
 	return save.Estimates
+}
+
+func receiptFromFile(requestID string) *uber.Receipt {
+	save := new(uber.Receipt)
+	path := receiptPathFromRequestID(requestID)
+	if err := readFromFileAndDeserialize(path, save); err != nil {
+		return nil
+	}
+	return save
 }
 
 func readFromFileAndDeserialize(path string, save interface{}) error {
@@ -528,4 +612,5 @@ const (
 	estimateTimeRoute    = "estimate-times"
 	retrieveProfileRoute = "retrieve-profile"
 	applyPromoCodeRoute  = "apply-promo-code"
+	requestReceiptRoute  = "request-receipt"
 )

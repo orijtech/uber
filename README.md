@@ -188,3 +188,20 @@ func getTimeEstimates() {
 	}
 }
 ```
+
+* Retrieve a receipt
+```go
+func retrieveReceipt() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	receipt, err := client.RequestReceipt("b5512127-a134-4bf4-b1ba-fe9f48f56d9d")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("That receipt: %#v\n", receipt)
+}
+```
