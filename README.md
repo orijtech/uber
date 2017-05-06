@@ -48,7 +48,7 @@ func searchingForFirstEdmontonTrip() {
 		log.Fatal(err)
 	}
 
-	pagesChan, cancelChan, err := client.ListAllMyHistory()
+	pagesChan, cancelPaging, err := client.ListAllMyHistory()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func searchingForFirstEdmontonTrip() {
 			startCity := trip.StartCity
 			if startCity.Name == "Edmonton" {
 				fmt.Printf("aha found the trip from Edmonton, canceling the rest!: %#v\n", trip)
-				cancelChan <- true
+				cancelPaging()
 				break
 			}
 
@@ -117,7 +117,7 @@ func getPriceEstimates() {
 		log.Fatal(err)
 	}
 
-	estimatesPageChan, cancelChan, err := client.EstimatePrice(&uber.EstimateRequest{
+	estimatesPageChan, cancelPaging, err := client.EstimatePrice(&uber.EstimateRequest{
 		StartLatitude:  37.7752315,
 		EndLatitude:    37.7752415,
 		StartLongitude: -122.418075,
@@ -142,7 +142,7 @@ func getPriceEstimates() {
 		}
 
 		if itemCount >= 23 {
-			cancelChan <- true
+			cancelPaging()
 		}
 	}
 }
@@ -156,7 +156,7 @@ func getTimeEstimates() {
 		log.Fatal(err)
 	}
 
-	estimatesPageChan, cancelChan, err := client.EstimateTime(&uber.EstimateRequest{
+	estimatesPageChan, cancelPaging, err := client.EstimateTime(&uber.EstimateRequest{
 		StartLatitude:  37.7752315,
 		EndLatitude:    37.7752415,
 		StartLongitude: -122.418075,
@@ -183,7 +183,7 @@ func getTimeEstimates() {
 		}
 
 		if itemCount >= 23 {
-			cancelChan <- true
+			cancelPaging()
 		}
 	}
 }

@@ -120,3 +120,15 @@ func (c *Client) doAuthAndHTTPReq(req *http.Request) ([]byte, http.Header, error
 	blob, err := ioutil.ReadAll(res.Body)
 	return blob, res.Header, err
 }
+
+func makeCancelParadigm() (<-chan bool, func()) {
+	var cancelOnce sync.Once
+	cancelChan := make(chan bool, 1)
+	cancelFn := func() {
+		cancelOnce.Do(func() {
+			close(cancelChan)
+		})
+	}
+
+	return cancelChan, cancelFn
+}

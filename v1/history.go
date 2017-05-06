@@ -90,11 +90,11 @@ func (treq *Pager) adjustPageParams() {
 	}
 }
 
-func (c *Client) ListAllMyHistory() (chan *TripThreadPage, chan<- bool, error) {
+func (c *Client) ListAllMyHistory() (thChan chan *TripThreadPage, cancelFn func(), err error) {
 	return c.ListHistory(nil)
 }
 
-func (c *Client) ListHistory(threq *Pager) (chan *TripThreadPage, chan<- bool, error) {
+func (c *Client) ListHistory(threq *Pager) (thChan chan *TripThreadPage, cancelFn func(), err error) {
 	treq := new(Pager)
 	if threq != nil {
 		*treq = *threq
@@ -113,7 +113,8 @@ func (c *Client) ListHistory(threq *Pager) (chan *TripThreadPage, chan<- bool, e
 		return pageNumber >= uint64(requestedMaxPage)
 	}
 
-	cancelChan := make(chan bool, 1)
+	cancelChan, cancelFn := makeCancelParadigm()
+
 	historyChan := make(chan *TripThreadPage)
 	go func() {
 		defer close(historyChan)
@@ -183,5 +184,5 @@ func (c *Client) ListHistory(threq *Pager) (chan *TripThreadPage, chan<- bool, e
 		}
 	}()
 
-	return historyChan, cancelChan, nil
+	return historyChan, cancelFn, nil
 }

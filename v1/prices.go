@@ -87,7 +87,7 @@ type PriceEstimatesPage struct {
 	PageNumber uint64
 }
 
-func (c *Client) EstimatePrice(ereq *EstimateRequest) (chan *PriceEstimatesPage, chan bool, error) {
+func (c *Client) EstimatePrice(ereq *EstimateRequest) (pagesChan chan *PriceEstimatesPage, cancelPaging func(), err error) {
 	if ereq == nil {
 		return nil, nil, errNilEstimateRequest
 	}
@@ -110,7 +110,7 @@ func (c *Client) EstimatePrice(ereq *EstimateRequest) (chan *PriceEstimatesPage,
 		return pageNumber >= uint64(requestedMaxPage)
 	}
 
-	cancelChan := make(chan bool, 1)
+	cancelChan, cancelFn := makeCancelParadigm()
 	estimatesPageChan := make(chan *PriceEstimatesPage)
 	go func() {
 		defer close(estimatesPageChan)
@@ -180,5 +180,5 @@ func (c *Client) EstimatePrice(ereq *EstimateRequest) (chan *PriceEstimatesPage,
 		}
 	}()
 
-	return estimatesPageChan, cancelChan, nil
+	return estimatesPageChan, cancelFn, nil
 }

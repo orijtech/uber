@@ -46,7 +46,7 @@ func Example_client_ListHistory() {
 		log.Fatal(err)
 	}
 
-	pagesChan, cancelChan, err := client.ListHistory(&uber.Pager{
+	pagesChan, cancelPaging, err := client.ListHistory(&uber.Pager{
 		MaxPages:     4,
 		LimitPerPage: 10,
 		StartOffset:  0,
@@ -67,7 +67,7 @@ func Example_client_ListHistory() {
 			startCity := trip.StartCity
 			if startCity.Name == "Tokyo" {
 				fmt.Printf("aha found the first Tokyo trip, canceling any more requests!: %#v\n", trip)
-				cancelChan <- true
+				cancelPaging()
 				break
 			}
 
@@ -83,7 +83,7 @@ func Example_client_ListAllMyHistory() {
 		log.Fatal(err)
 	}
 
-	pagesChan, cancelChan, err := client.ListAllMyHistory()
+	pagesChan, cancelPaging, err := client.ListAllMyHistory()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func Example_client_ListAllMyHistory() {
 			startCity := trip.StartCity
 			if startCity.Name == "Edmonton" {
 				fmt.Printf("aha found the trip from Edmonton, canceling the rest!: %#v\n", trip)
-				cancelChan <- true
+				cancelPaging()
 				break
 			}
 
@@ -115,7 +115,7 @@ func Example_client_EstimatePrice() {
 		log.Fatal(err)
 	}
 
-	estimatesPageChan, cancelChan, err := client.EstimatePrice(&uber.EstimateRequest{
+	estimatesPageChan, cancelPaging, err := client.EstimatePrice(&uber.EstimateRequest{
 		StartLatitude:  37.7752315,
 		EndLatitude:    37.7752415,
 		StartLongitude: -122.418075,
@@ -140,7 +140,7 @@ func Example_client_EstimatePrice() {
 		}
 
 		if itemCount >= 23 {
-			cancelChan <- true
+			cancelPaging()
 		}
 	}
 }
@@ -151,7 +151,7 @@ func Example_client_EstimateTime() {
 		log.Fatal(err)
 	}
 
-	estimatesPageChan, cancelChan, err := client.EstimateTime(&uber.EstimateRequest{
+	estimatesPageChan, cancelPaging, err := client.EstimateTime(&uber.EstimateRequest{
 		StartLatitude:  37.7752315,
 		EndLatitude:    37.7752415,
 		StartLongitude: -122.418075,
@@ -178,7 +178,7 @@ func Example_client_EstimateTime() {
 		}
 
 		if itemCount >= 23 {
-			cancelChan <- true
+			cancelPaging()
 		}
 	}
 }

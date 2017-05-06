@@ -117,7 +117,7 @@ func TestEstimatePrice(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		estimatesChan, cancelChan, err := client.EstimatePrice(tt.ereq)
+		estimatesChan, cancelPaging, err := client.EstimatePrice(tt.ereq)
 		if tt.wantErr {
 			if err == nil {
 				t.Errorf("#%d expecting a non-nil error", i)
@@ -132,7 +132,7 @@ func TestEstimatePrice(t *testing.T) {
 
 		firstPage := <-estimatesChan
 		// Then cancel it
-		cancelChan <- true
+		cancelPaging()
 
 		if err := firstPage.Err; err != nil {
 			t.Errorf("#%d paging err: %v, firstPage: %#v", i, err, firstPage)
@@ -178,7 +178,7 @@ func TestEstimateTime(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		estimatesChan, cancelChan, err := client.EstimateTime(tt.treq)
+		estimatesChan, cancelPaging, err := client.EstimateTime(tt.treq)
 		if tt.wantErr {
 			if err == nil {
 				t.Errorf("#%d expecting a non-nil error", i)
@@ -193,7 +193,7 @@ func TestEstimateTime(t *testing.T) {
 
 		firstPage := <-estimatesChan
 		// Then cancel it
-		cancelChan <- true
+		cancelPaging()
 
 		if err := firstPage.Err; err != nil {
 			t.Errorf("#%d paging err: %v, firstPage: %#v", i, err, firstPage)

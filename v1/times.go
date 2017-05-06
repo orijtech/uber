@@ -58,7 +58,7 @@ var timeExcludedValues = map[string]bool{
 	"seat_count": true,
 }
 
-func (c *Client) EstimateTime(treq *EstimateRequest) (chan *TimeEstimatesPage, chan bool, error) {
+func (c *Client) EstimateTime(treq *EstimateRequest) (pagesChan chan *TimeEstimatesPage, cancelPaging func(), err error) {
 	if treq == nil {
 		return nil, nil, errNilTimeEstimateRequest
 	}
@@ -81,7 +81,7 @@ func (c *Client) EstimateTime(treq *EstimateRequest) (chan *TimeEstimatesPage, c
 		return pageNumber >= uint64(requestedMaxPage)
 	}
 
-	cancelChan := make(chan bool, 1)
+	cancelChan, cancelFn := makeCancelParadigm()
 	estimatesPageChan := make(chan *TimeEstimatesPage)
 	go func() {
 		defer close(estimatesPageChan)
@@ -151,5 +151,5 @@ func (c *Client) EstimateTime(treq *EstimateRequest) (chan *TimeEstimatesPage, c
 		}
 	}()
 
-	return estimatesPageChan, cancelChan, nil
+	return estimatesPageChan, cancelFn, nil
 }
