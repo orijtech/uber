@@ -211,7 +211,7 @@ func Example_client_ApplyPromoCode() {
 	fmt.Printf("AppliedPromoCode: %#v\n", appliedPromoCode)
 }
 
-func ExampleRequestReceipt() {
+func Example_client_RequestReceipt() {
 	client, err := uber.NewClient()
 	if err != nil {
 		log.Fatal(err)
@@ -225,7 +225,7 @@ func ExampleRequestReceipt() {
 	fmt.Printf("That receipt: %#v\n", receipt)
 }
 
-func ExampleRetrieveHomeAddress() {
+func Example_client_RetrieveHomeAddress() {
 	client, err := uber.NewClient()
 	if err != nil {
 		log.Fatal(err)
@@ -239,7 +239,7 @@ func ExampleRetrieveHomeAddress() {
 	fmt.Printf("My home address: %#v\n", place.Address)
 }
 
-func ExampleRetrieveWorkAddress() {
+func Example_client_RetrieveWorkAddress() {
 	client, err := uber.NewClient()
 	if err != nil {
 		log.Fatal(err)
@@ -253,7 +253,7 @@ func ExampleRetrieveWorkAddress() {
 	fmt.Printf("My work address: %#v\n", place.Address)
 }
 
-func ExampleUpdateHomeAddress() {
+func Example_client_UpdateHomeAddress() {
 	client, err := uber.NewClient()
 	if err != nil {
 		log.Fatal(err)
@@ -270,7 +270,7 @@ func ExampleUpdateHomeAddress() {
 	fmt.Printf("My updated home address: %#v\n", updatedHome)
 }
 
-func ExampleUpdateWorkAddress() {
+func Example_client_UpdateWorkAddress() {
 	client, err := uber.NewClient()
 	if err != nil {
 		log.Fatal(err)
@@ -281,8 +281,33 @@ func ExampleUpdateWorkAddress() {
 		Address: "685 Market St, San Francisco, CA 94103, USA",
 	})
 	if err != nil {
-		log.Fatalf("work failed; %v", err)
+		log.Fatal(err)
 	}
 
 	fmt.Printf("My updated work address: %#v\n", updatedWork)
+}
+
+func Example_client_RequestMap() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tripMapInfo, err := client.RequestMap("b5512127-a134-4bf4-b1ba-fe9f48f56d9d")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Visit the URL: %q for more information\n", tripMapInfo.URL)
+}
+
+func Example_client_OpenMap() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := client.OpenMapForTrip("b5512127-a134-4bf4-b1ba-fe9f48f56d9d"); err != nil {
+		log.Fatal(err)
+	}
 }

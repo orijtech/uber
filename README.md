@@ -279,3 +279,34 @@ func updateMyWorkAddress() {
 	fmt.Printf("My updated work address: %#v\n", updatedWork)
 }
 ```
+
+* Retrieve the map for a trip
+```go
+func requestMap() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tripMapInfo, err := client.RequestMap("b5512127-a134-4bf4-b1ba-fe9f48f56d9d")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Visit the URL: %q for more information\n", tripMapInfo.URL)
+}
+```
+
+* Open the map for a trip in your web browser
+```go
+func openTheTripInBrowser() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := client.OpenMapForTrip("b5512127-a134-4bf4-b1ba-fe9f48f56d9d"); err != nil {
+		log.Fatal(err)
+	}
+}
+```

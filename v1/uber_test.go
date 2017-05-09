@@ -426,6 +426,61 @@ func TestPlaceUpdate(t *testing.T) {
 	}
 }
 
+func mapFromFile(tripID string) *uber.Map {
+	diskPath := mapPathFromRequestID(tripID)
+	save := new(uber.Map)
+	if err := readFromFileAndDeserialize(diskPath, save); err != nil {
+		return nil
+	}
+	return save
+}
+
+func TestRequestMap(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: getMapRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	tests := [...]struct {
+		wantErr   bool
+		requestID string
+		want      *uber.Map
+	}{
+		0: {
+			requestID: requestID1,
+			want:      mapFromFile(requestID1),
+		},
+		1: {
+			// Try with a random requestID.
+			requestID: fmt.Sprintf("%v", time.Now().Unix()),
+			wantErr:   true,
+		},
+	}
+
+	for i, tt := range tests {
+		mapInfo, err := client.RequestMap(tt.requestID)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		gotBlob, wantBlob := jsonSerialize(mapInfo), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
 func TestRequestReceipt(t *testing.T) {
 	client, err := uber.NewClient(testToken1)
 	if err != nil {
@@ -532,6 +587,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.applyPromoCodeRoundTrip(req)
 	case requestReceiptRoute:
 		return trt.requestReceiptRoundTrip(req)
+	case getMapRoute:
+		return trt.requestMapRoundTrip(req)
 	case getPlacesRoute:
 		return trt.getPlacesRoundTrip(req)
 	case updatePlacesRoute:
@@ -676,6 +733,28 @@ func (trt *tRoundTripper) updatePlacesRoundTrip(req *http.Request) (*http.Respon
 	return responseFromFileContent(diskPath), nil
 }
 
+func mapPathFromRequestID(tripID string) string {
+	return fmt.Sprintf("./testdata/map-%s.json", tripID)
+}
+
+func (trt *tRoundTripper) requestMapRoundTrip(req *http.Request) (*http.Response, error) {
+	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+		return authResp, err
+	}
+
+	pathSplits := strings.Split(req.URL.Path, "/")
+	if len(pathSplits) < 2 {
+		resp := makeResp("expecting the requestID", http.StatusBadRequest)
+		return resp, nil
+	}
+
+	// second last item
+	requestID := pathSplits[len(pathSplits)-2]
+	diskPath := mapPathFromRequestID(requestID)
+	resp := responseFromFileContent(diskPath)
+	return resp, nil
+}
+
 func (trt *tRoundTripper) requestReceiptRoundTrip(req *http.Request) (*http.Response, error) {
 	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
@@ -804,6 +883,7 @@ const (
 	estimateTimeRoute    = "estimate-times"
 	retrieveProfileRoute = "retrieve-profile"
 	applyPromoCodeRoute  = "apply-promo-code"
+	getMapRoute          = "get-map"
 	requestReceiptRoute  = "request-receipt"
 	getPlacesRoute       = "get-places"
 	updatePlacesRoute    = "update-places"
