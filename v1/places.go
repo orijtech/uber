@@ -15,24 +15,30 @@
 package uber
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 )
 
-type Address string
+type PlaceName string
 
 const (
-	AddressHome Address = "home"
-	AddressWork Address = "work"
+	PlaceHome PlaceName = "home"
+	PlaceWork PlaceName = "work"
 )
 
-func (c *Client) Place(address Address) (*Place, error) {
-	fullURL := fmt.Sprintf("%s/places/%s", baseURL, address)
+func (c *Client) Place(placeName PlaceName) (*Place, error) {
+	fullURL := fmt.Sprintf("%s/places/%s", baseURL, placeName)
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err
 	}
+	return c.doPlaceReq(req)
+}
+
+func (c *Client) doPlaceReq(req *http.Request) (*Place, error) {
 	slurp, _, err := c.doAuthAndHTTPReq(req)
 	if err != nil {
 		return nil, err
@@ -43,4 +49,46 @@ func (c *Client) Place(address Address) (*Place, error) {
 		return nil, err
 	}
 	return place, nil
+}
+
+type PlaceParams struct {
+	Place   PlaceName `json:"place"`
+	Address string    `json:"address"`
+}
+
+var (
+	errEmptyAddress     = errors.New("expecting a non-empty address")
+	errInvalidPlaceName = fmt.Errorf("invalid placeName; can only be either %q or %q", PlaceHome, PlaceWork)
+)
+
+func (pp *PlaceParams) Validate() error {
+	if pp == nil || pp.Address == "" {
+		return errEmptyAddress
+	}
+
+	switch pp.Place {
+	case PlaceHome, PlaceWork:
+		return nil
+	default:
+		return errInvalidPlaceName
+	}
+}
+
+// UpdatePlace udpates your place's address.
+func (c *Client) UpdatePlace(pp *PlaceParams) (*Place, error) {
+	if err := pp.Validate(); err != nil {
+		return nil, err
+	}
+
+	blob, err := json.Marshal(&Place{Address: pp.Address})
+	if err != nil {
+		return nil, err
+	}
+
+	fullURL := fmt.Sprintf("%s/places/%s", baseURL, pp.Place)
+	req, err := http.NewRequest("PUT", fullURL, bytes.NewReader(blob))
+	if err != nil {
+		return nil, err
+	}
+	return c.doPlaceReq(req)
 }

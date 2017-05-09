@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -112,9 +113,10 @@ func (c *Client) doAuthAndHTTPReq(req *http.Request) ([]byte, http.Header, error
 		var err error
 		if res.Body != nil {
 			slurp, _ := ioutil.ReadAll(res.Body)
-			if len(slurp) > 0 {
+			if len(slurp) > 3 {
 				ue := new(Error)
-				if jerr := json.Unmarshal(slurp, ue); jerr == nil {
+				plainUE := new(Error)
+				if jerr := json.Unmarshal(slurp, ue); jerr == nil && !reflect.DeepEqual(ue, plainUE) {
 					err = ue
 				} else {
 					errMsg = string(slurp)

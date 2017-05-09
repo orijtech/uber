@@ -312,21 +312,21 @@ func TestPlaceRetrieval(t *testing.T) {
 		t.Fatalf("initializing client; %v", err)
 	}
 
-	testingRoundTripper := &tRoundTripper{route: placesRoute}
+	testingRoundTripper := &tRoundTripper{route: getPlacesRoute}
 	client.SetHTTPRoundTripper(testingRoundTripper)
 
 	tests := [...]struct {
 		wantErr bool
-		place   uber.Address
+		place   uber.PlaceName
 		want    *uber.Place
 	}{
 		0: {
 			place: "home",
-			want:  placeFromFile("home"),
+			want:  placeFromFile("685-market"),
 		},
 		1: {
 			place: "work",
-			want:  placeFromFile("work"),
+			want:  placeFromFile("wallaby-way"),
 		},
 		2: {
 			place:   "workz",
@@ -340,6 +340,73 @@ func TestPlaceRetrieval(t *testing.T) {
 
 	for i, tt := range tests {
 		place, err := client.Place(tt.place)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		gotBlob, wantBlob := jsonSerialize(place), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
+func TestPlaceUpdate(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: updatePlacesRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	tests := [...]struct {
+		wantErr bool
+		params  *uber.PlaceParams
+		want    *uber.Place
+	}{
+		0: {
+			params: &uber.PlaceParams{Place: uber.PlaceHome, Address: "P Sherman 42 Wallaby Way Sydney"},
+			want:   placeFromFile("wallaby-way"),
+		},
+		1: {
+			params: &uber.PlaceParams{Place: uber.PlaceWork, Address: "685 Market St, San Francisco, CA 94103, USA"},
+			want:   placeFromFile("685-market"),
+		},
+		2: {
+			params:  &uber.PlaceParams{},
+			wantErr: true,
+		},
+
+		3: {
+			// No place was specified.
+			params:  &uber.PlaceParams{Address: "685 Market St, San Francisco, CA 94103, USA"},
+			wantErr: true,
+		},
+
+		4: {
+			// No address was specified.
+			params:  &uber.PlaceParams{Place: uber.PlaceHome},
+			wantErr: true,
+		},
+
+		5: {
+			// No address was specified.
+			params:  &uber.PlaceParams{Place: uber.PlaceWork},
+			wantErr: true,
+		},
+	}
+
+	for i, tt := range tests {
+		place, err := client.UpdatePlace(tt.params)
 		if tt.wantErr {
 			if err == nil {
 				t.Errorf("#%d expecting a non-nil error", i)
@@ -465,8 +532,10 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.applyPromoCodeRoundTrip(req)
 	case requestReceiptRoute:
 		return trt.requestReceiptRoundTrip(req)
-	case placesRoute:
-		return trt.placesReceiptRoundTrip(req)
+	case getPlacesRoute:
+		return trt.getPlacesRoundTrip(req)
+	case updatePlacesRoute:
+		return trt.updatePlacesRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -552,7 +621,15 @@ func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Respo
 	return resp, nil
 }
 
-func (trt *tRoundTripper) placesReceiptRoundTrip(req *http.Request) (*http.Response, error) {
+var addressesToIDs = map[string]string{
+	"home": "685-market",
+	"work": "wallaby-way",
+
+	"P Sherman 42 Wallaby Way Sydney":             "wallaby-way",
+	"685 Market St, San Francisco, CA 94103, USA": "685-market",
+}
+
+func (trt *tRoundTripper) getPlacesRoundTrip(req *http.Request) (*http.Response, error) {
 	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
@@ -563,13 +640,39 @@ func (trt *tRoundTripper) placesReceiptRoundTrip(req *http.Request) (*http.Respo
 	}
 
 	placeID := splits[len(splits)-1]
-	switch uber.Address(placeID) {
-	case uber.AddressHome, uber.AddressWork:
+	switch uber.PlaceName(placeID) {
+	case uber.PlaceHome, uber.PlaceWork:
 	default:
 		return makeResp("unknown place", http.StatusBadRequest), nil
 	}
 
-	diskPath := placePathFromID(placeID)
+	pathID := addressesToIDs[placeID]
+	diskPath := placePathFromID(pathID)
+	return responseFromFileContent(diskPath), nil
+}
+
+func (trt *tRoundTripper) updatePlacesRoundTrip(req *http.Request) (*http.Response, error) {
+	if authResp, _, err := prescreenAuthAndMethod(req, "PUT"); authResp != nil || err != nil {
+		return authResp, err
+	}
+	defer req.Body.Close()
+
+	slurp, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+
+	pp := new(uber.PlaceParams)
+	if err := json.Unmarshal(slurp, pp); err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+	address := strings.TrimSpace(pp.Address)
+	if address == "" {
+		return makeResp("expecting a non-empty address", http.StatusBadRequest), nil
+	}
+
+	pathID := addressesToIDs[address]
+	diskPath := placePathFromID(pathID)
 	return responseFromFileContent(diskPath), nil
 }
 
@@ -654,7 +757,7 @@ func receiptFromFile(requestID string) *uber.Receipt {
 }
 
 func placePathFromID(placeID string) string {
-	return fmt.Sprintf("./testdata/place-%s", placeID)
+	return fmt.Sprintf("./testdata/place-%s.json", placeID)
 }
 
 func placeFromFile(placeID string) *uber.Place {
@@ -702,5 +805,6 @@ const (
 	retrieveProfileRoute = "retrieve-profile"
 	applyPromoCodeRoute  = "apply-promo-code"
 	requestReceiptRoute  = "request-receipt"
-	placesRoute          = "places"
+	getPlacesRoute       = "get-places"
+	updatePlacesRoute    = "update-places"
 )

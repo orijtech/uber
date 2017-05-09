@@ -231,7 +231,7 @@ func ExampleRetrieveHomeAddress() {
 		log.Fatal(err)
 	}
 
-	place, err := client.Place(uber.AddressHome)
+	place, err := client.Place(uber.PlaceHome)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -245,10 +245,44 @@ func ExampleRetrieveWorkAddress() {
 		log.Fatal(err)
 	}
 
-	place, err := client.Place(uber.AddressWork)
+	place, err := client.Place(uber.PlaceWork)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Printf("My work address: %#v\n", place.Address)
+}
+
+func ExampleUpdateHomeAddress() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	updatedHome, err := client.UpdatePlace(&uber.PlaceParams{
+		Place:   uber.PlaceHome,
+		Address: "685 Market St, San Francisco, CA 94103, USA",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("My updated home address: %#v\n", updatedHome)
+}
+
+func ExampleUpdateWorkAddress() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	updatedWork, err := client.UpdatePlace(&uber.PlaceParams{
+		Place:   uber.PlaceWork,
+		Address: "685 Market St, San Francisco, CA 94103, USA",
+	})
+	if err != nil {
+		log.Fatalf("work failed; %v", err)
+	}
+
+	fmt.Printf("My updated work address: %#v\n", updatedWork)
 }
