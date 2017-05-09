@@ -205,3 +205,37 @@ func retrieveReceipt() {
 	fmt.Printf("That receipt: %#v\n", receipt)
 }
 ```
+
+* Retrieve your home address
+```go
+func retrieveMyHomeAddress() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	place, err := client.Place(uber.AddressHome)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("My home address: %#v\n", place.Address)
+}
+```
+
+* Retrieve your work address
+```go
+func retrieveMyWorkAddress() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	place, err := client.Place(uber.AddressWork)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("My work address: %#v\n", place.Address)
+}
+```

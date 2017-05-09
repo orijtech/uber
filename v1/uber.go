@@ -15,6 +15,7 @@
 package uber
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -108,13 +109,22 @@ func (c *Client) doAuthAndHTTPReq(req *http.Request) ([]byte, http.Header, error
 
 	if !otils.StatusOK(res.StatusCode) {
 		errMsg := res.Status
+		var err error
 		if res.Body != nil {
 			slurp, _ := ioutil.ReadAll(res.Body)
 			if len(slurp) > 0 {
-				errMsg = string(slurp)
+				ue := new(Error)
+				if jerr := json.Unmarshal(slurp, ue); jerr == nil {
+					err = ue
+				} else {
+					errMsg = string(slurp)
+				}
 			}
 		}
-		return nil, res.Header, otils.MakeCodedError(errMsg, res.StatusCode)
+		if err == nil {
+			err = otils.MakeCodedError(errMsg, res.StatusCode)
+		}
+		return nil, res.Header, err
 	}
 
 	blob, err := ioutil.ReadAll(res.Body)
@@ -131,4 +141,60 @@ func makeCancelParadigm() (<-chan bool, func()) {
 	}
 
 	return cancelChan, cancelFn
+}
+
+type Error struct {
+	Meta   interface{}         `json:"meta"`
+	Errors []*statusCodedError `json:"errors"`
+
+	memoized string
+}
+
+func (ue *Error) Error() string {
+	if ue == nil {
+		return ""
+	}
+	if ue.memoized != "" {
+		return ue.memoized
+	}
+
+	// Otherwise create it
+	var errsList []string
+	for _, sce := range ue.Errors {
+		errsList = append(errsList, sce.Error())
+	}
+	ue.memoized = strings.Join(errsList, "\n")
+	return ue.memoized
+}
+
+var _ error = (*Error)(nil)
+var _ error = (*statusCodedError)(nil)
+
+type statusCodedError struct {
+	// The json tags are intentionally reversed
+	// because an uber status coded error looks
+	// like this:
+	// {
+	//    "status":404,
+	//    "code":"unknown_place_id",
+	//    "title":"Could not resolve the given place_id."
+	// }
+	// of which the above definitions seem reversed compared to
+	// Go's net/http Request where Status is a message and StatusCode is an int.
+	Code    int    `json:"status"`
+	Message string `json:"code"`
+	Title   string `json:"title"`
+
+	memoizedErr string
+}
+
+func (sce *statusCodedError) Error() string {
+	if sce == nil {
+		return ""
+	}
+	if sce.memoizedErr == "" {
+		blob, _ := json.Marshal(sce)
+		sce.memoizedErr = string(blob)
+	}
+	return sce.memoizedErr
 }

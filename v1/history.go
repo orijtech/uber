@@ -54,6 +54,8 @@ type Place struct {
 
 	// The longitude of the approximate city center.
 	Longitude float64 `json:"longitude,omitempty"`
+
+	Address string `json:"address,omitempty"`
 }
 
 type TripThread struct {

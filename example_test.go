@@ -224,3 +224,31 @@ func ExampleRequestReceipt() {
 
 	fmt.Printf("That receipt: %#v\n", receipt)
 }
+
+func ExampleRetrieveHomeAddress() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	place, err := client.Place(uber.AddressHome)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("My home address: %#v\n", place.Address)
+}
+
+func ExampleRetrieveWorkAddress() {
+	client, err := uber.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	place, err := client.Place(uber.AddressWork)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("My work address: %#v\n", place.Address)
+}
