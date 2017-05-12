@@ -59,7 +59,7 @@ type PriceEstimate struct {
 	// Unique identifier representing a specific
 	// product for a given longitude and latitude.
 	// For example, uberX in San Francisco will have
-	// a different ProductID than uberX in Los Angelese.
+	// a different ProductID than uberX in Los Angeles.
 	ProductID string `json:"product_id"`
 
 	// Display name of product.
@@ -75,6 +75,7 @@ type PriceEstimate struct {
 
 	LimitPerPage int64 `json:"limit"`
 }
+ 
 
 var errNilEstimateRequest = errors.New("expecting a non-nil estimateRequest")
 

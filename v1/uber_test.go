@@ -559,7 +559,8 @@ func jsonSerialize(v interface{}) []byte {
 }
 
 type tRoundTripper struct {
-	route string
+	route    string
+	oauth2On bool
 }
 
 func makeResp(status string, code int) *http.Response {
@@ -603,7 +604,7 @@ var (
 	respUnauthorizedToken = makeResp("Unauthorized token", http.StatusUnauthorized)
 )
 
-func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Response, string, error) {
+func (trt *tRoundTripper) prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Response, string, error) {
 	if req.Method != wantMethod {
 		msg := fmt.Sprintf("only %q allowed not %q", wantMethod, req.Method)
 		return makeResp(msg, http.StatusMethodNotAllowed), "", nil
@@ -621,7 +622,7 @@ func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Respons
 		return respNoBearerTokenSet, "", nil
 	}
 
-	if unauthorizedToken(token) {
+	if unauthorizedToken(token, trt.oauth2On) {
 		return respUnauthorizedToken, "", nil
 	}
 
@@ -630,7 +631,7 @@ func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Respons
 }
 
 func (trt *tRoundTripper) applyPromoCodeRoundTrip(req *http.Request) (*http.Response, error) {
-	authResp, _, err := prescreenAuthAndMethod(req, "PATCH")
+	authResp, _, err := trt.prescreenAuthAndMethod(req, "PATCH")
 	if authResp != nil || err != nil {
 		return authResp, err
 	}
@@ -654,7 +655,7 @@ func (trt *tRoundTripper) applyPromoCodeRoundTrip(req *http.Request) (*http.Resp
 }
 
 func (trt *tRoundTripper) retrieveProfileRoundTrip(req *http.Request) (*http.Response, error) {
-	authResp, token, err := prescreenAuthAndMethod(req, "GET")
+	authResp, token, err := trt.prescreenAuthAndMethod(req, "GET")
 	if authResp != nil || err != nil {
 		return authResp, err
 	}
@@ -663,7 +664,7 @@ func (trt *tRoundTripper) retrieveProfileRoundTrip(req *http.Request) (*http.Res
 }
 
 func (trt *tRoundTripper) estimateTimeRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := trt.prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 	resp := responseFromFileContent("./testdata/time-estimate-1.json")
@@ -671,7 +672,7 @@ func (trt *tRoundTripper) estimateTimeRoundTrip(req *http.Request) (*http.Respon
 }
 
 func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := trt.prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 	resp := responseFromFileContent("./testdata/price-estimate-1.json")
@@ -687,7 +688,7 @@ var addressesToIDs = map[string]string{
 }
 
 func (trt *tRoundTripper) getPlacesRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := trt.prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 	splits := strings.Split(req.URL.Path, "/")
@@ -709,7 +710,7 @@ func (trt *tRoundTripper) getPlacesRoundTrip(req *http.Request) (*http.Response,
 }
 
 func (trt *tRoundTripper) updatePlacesRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "PUT"); authResp != nil || err != nil {
+	if authResp, _, err := trt.prescreenAuthAndMethod(req, "PUT"); authResp != nil || err != nil {
 		return authResp, err
 	}
 	defer req.Body.Close()
@@ -738,7 +739,7 @@ func mapPathFromRequestID(tripID string) string {
 }
 
 func (trt *tRoundTripper) requestMapRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := trt.prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 
@@ -756,7 +757,7 @@ func (trt *tRoundTripper) requestMapRoundTrip(req *http.Request) (*http.Response
 }
 
 func (trt *tRoundTripper) requestReceiptRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := trt.prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 
@@ -774,7 +775,7 @@ func (trt *tRoundTripper) requestReceiptRoundTrip(req *http.Request) (*http.Resp
 }
 
 func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
+	if authResp, _, err := trt.prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
 		return authResp, err
 	}
 	resp := responseFromFileContent("./testdata/list-payments-1.json")
@@ -865,6 +866,8 @@ func readFromFileAndDeserialize(path string, save interface{}) error {
 const (
 	testToken1 = "TEST_TOKEN-1"
 
+	testOAuth2Token1 = "TEST-OAUTH2-TOKEN"
+
 	promoCode1 = "pc1"
 )
 
@@ -872,8 +875,16 @@ var authorizedTokens = map[string]bool{
 	testToken1: true,
 }
 
-func unauthorizedToken(token string) bool {
-	_, known := authorizedTokens[token]
+var authorizedOAuth2Tokens = map[string]bool{
+	testOAuth2Token1: true,
+}
+
+func unauthorizedToken(token string, oauth2On bool) bool {
+	mp := authorizedTokens
+	if oauth2On {
+		mp = authorizedOAuth2Tokens
+	}
+	_, known := mp[token]
 	return !known
 }
 

@@ -33,8 +33,8 @@ func makeCancelParadigm() (<-chan bool, func()) {
 }
 
 type Error struct {
-	Meta   interface{}         `json:"meta"`
-	Errors []*statusCodedError `json:"errors"`
+	Meta   map[string]interface{} `json:"meta"`
+	Errors []*statusCodedError    `json:"errors"`
 
 	memoized string
 }
