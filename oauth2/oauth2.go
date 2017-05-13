@@ -46,6 +46,12 @@ func Transport(token *oauth2.Token) *oauth2.Transport {
 	return &oauth2.Transport{Source: ts}
 }
 
+func TransportWithBase(token *oauth2.Token, base http.RoundTripper) *oauth2.Transport {
+	tr := Transport(token)
+	tr.Base = base
+	return tr
+}
+
 type tokenSourcer struct {
 	sync.RWMutex
 	token *oauth2.Token
