@@ -1,0 +1,50 @@
+{
+  "estimate": {
+    "surge_confirmation_href": "https:\/\/api.uber.com\/v1\/surge-confirmations\/7d604f5e",
+    "high_estimate": 11,
+    "surge_confirmation_id": "7d604f5e",
+    "minimum": 5,
+    "low_estimate": 8,
+    "fare_breakdown": [
+      {
+        "low_amount": 1.25,
+        "high_amount": 1.25,
+        "display_amount": "1.25",
+        "display_name": "Base Fare"
+      },
+      {
+        "low_amount": 1.92,
+        "high_amount": 2.57,
+        "display_amount": "1.92-2.57",
+        "display_name": "Distance"
+      },
+      {
+        "low_amount": 2.50,
+        "high_amount": 3.50,
+        "display_amount": "2.50-3.50",
+        "display_name": "Surge x1.5"
+      },
+      {
+        "low_amount": 1.25,
+        "high_amount": 1.25,
+        "display_amount": "1.25",
+        "display_name": "Booking Fee"
+      },
+      {
+        "low_amount": 1.36,
+        "high_amount": 1.81,
+        "display_amount": "1.36-1.81",
+        "display_name": "Time"
+      }
+    ],
+    "surge_multiplier": 1.5,
+    "display": "$8-11",
+    "currency_code": "USD"
+  },
+  "trip": {
+    "distance_unit": "mile",
+    "duration_estimate": 480,
+    "distance_estimate": 1.95
+  },
+  "pickup_estimate": 2
+}

@@ -1,0 +1,15 @@
+{
+  "fare": {
+    "value": 5.73,
+    "fare_id": "d30e732b8bba22c9cdc10513ee86380087cb4a6f89e37ad21ba2a39f3a1ba960",
+    "expires_at": 1476953293,
+    "display": "$5.73",
+    "currency_code": "USD"
+  },
+  "trip": {
+    "distance_unit": "mile",
+    "duration_estimate": 540,
+    "distance_estimate": 2.39
+  },
+  "pickup_estimate": 2
+}

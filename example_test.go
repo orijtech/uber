@@ -311,3 +311,31 @@ func Example_client_OpenMap() {
 		log.Fatal(err)
 	}
 }
+
+func Example_client_UpfrontFare() {
+	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	upfrontFare, err := client.UpfrontFare(&uber.EstimateRequest{
+		StartLatitude:  37.7752315,
+		EndLatitude:    37.7752415,
+		StartLongitude: -122.418075,
+		EndLongitude:   -122.518075,
+		SeatCount:      2,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if upfrontFare.SurgeInEffect() {
+		fmt.Printf("Surge is in effect!\n")
+		fmt.Printf("Please visit this URL to confirm %q then"+
+			"request again", upfrontFare.Estimate.SurgeConfirmationURL)
+		return
+	}
+
+	fmt.Printf("Fare: %#v\n", upfrontFare.Fare)
+	fmt.Printf("Trip: %#v\n", upfrontFare.Trip)
+}

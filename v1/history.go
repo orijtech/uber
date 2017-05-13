@@ -44,6 +44,11 @@ type Trip struct {
 
 	ProductID string `json:"product_id,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
+
+	Unit string `json:"distance_unit,omitempty"`
+
+	DurationEstimate otils.NullableFloat64 `json:"duration_estimate,omitempty"`
+	DistanceEstimate otils.NullableFloat64 `json:"distance_estimate,omitempty"`
 }
 
 type Place struct {

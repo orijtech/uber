@@ -15,6 +15,7 @@
 package uber
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,8 +30,17 @@ type EstimateRequest struct {
 	StartLongitude float64 `json:"start_longitude"`
 	EndLongitude   float64 `json:"end_longitude"`
 	EndLatitude    float64 `json:"end_latitude"`
-	SeatCount      int     `json:"seat_count"`
-	ProductID      string  `json:"product_id"`
+
+	SeatCount int `json:"seat_count"`
+
+	// ProductID is the UniqueID of the product
+	// being requested. If unspecified, it will
+	// default to the cheapest product for the
+	// given location.
+	ProductID string `json:"product_id"`
+
+	StartPlace PlaceName `json:"start_place_id"`
+	EndPlace   PlaceName `json:"end_place_id"`
 
 	Pager
 }
@@ -181,4 +191,110 @@ func (c *Client) EstimatePrice(ereq *EstimateRequest) (pagesChan chan *PriceEsti
 	}()
 
 	return estimatesPageChan, cancelFn, nil
+}
+
+type FareEstimate struct {
+	SurgeConfirmationURL string `json:"surge_confirmation_href,omitempty"`
+	SurgeConfirmationID  string `json:"surge_confirmation_id"`
+
+	// Breakdown provides details on how a fare came to be.
+	Breakdown []*FareBreakdown `json:"fare_breakdown,omitempty"`
+
+	SurgeMultiplier otils.NullableFloat64 `json:"surge_multiplier"`
+
+	CurrencyCode  otils.NullableString `json:"currency_code"`
+	DisplayAmount otils.NullableString `json:"display"`
+}
+
+type FareBreakdown struct {
+	Low           otils.NullableFloat64 `json:"low_amount"`
+	High          otils.NullableFloat64 `json:"high_amount"`
+	DisplayAmount otils.NullableString  `json:"display_amount"`
+	DisplayName   otils.NullableString  `json:"display_name"`
+}
+
+type Fare struct {
+	Value         otils.NullableFloat64 `json:"value,omitempty"`
+	ExpiresAt     int64                 `json:"expires_at,omitempty"`
+	CurrencyCode  otils.NullableString  `json:"currency_code"`
+	DisplayAmount otils.NullableString  `json:"display"`
+	ID            otils.NullableString  `json:"fare_id"`
+}
+
+type UpfrontFare struct {
+	Trip *Trip `json:"trip,omitempty"`
+	Fare *Fare `json:"fare,omitempty"`
+
+	// PickupEstimateMinutes is the estimated time of vehicle arrival
+	// in minutes. It is unset if there are no cars available.
+	PickupEstimateMinutes otils.NullableFloat64 `json:"pickup_estimate,omitempty"`
+
+	Estimate *FareEstimate `json:"estimate,omitempty"`
+}
+
+func (upf *UpfrontFare) SurgeInEffect() bool {
+	return upf != nil && upf.Estimate != nil && upf.Estimate.SurgeConfirmationURL != ""
+}
+
+func (upf *UpfrontFare) NoCarsAvailable() bool {
+	return upf == nil || upf.PickupEstimateMinutes <= 0
+}
+
+var errInvalidSeatCount = errors.New("invalid seatcount, default and maximum value is 2")
+
+func (esReq *EstimateRequest) validateForUpfrontFare() error {
+	if esReq == nil {
+		return errNilEstimateRequest
+	}
+
+	// The number of seats required for uberPool.
+	// Default and maximum value is 2.
+	if esReq.SeatCount < 0 || esReq.SeatCount > 2 {
+		return errInvalidSeatCount
+	}
+
+	// UpfrontFares require:
+	// * StartPlace or (StartLatitude, StartLongitude)
+	// * EndPlace	or (EndLatitude,   EndLongitude)
+	if esReq.StartPlace != "" && esReq.EndPlace != "" {
+		return nil
+	}
+
+	// However, checks for unspecified zero floats require
+	// special attention, so we'll let the JSON marshaling
+	// serialize them.
+	return nil
+}
+
+var errNilFare = errors.New("failed to unmarshal the response fare")
+
+func (c *Client) UpfrontFare(esReq *EstimateRequest) (*UpfrontFare, error) {
+	if err := esReq.validateForUpfrontFare(); err != nil {
+		return nil, err
+	}
+
+	blob, err := json.Marshal(esReq)
+	if err != nil {
+		return nil, err
+	}
+
+	fullURL := fmt.Sprintf("%s/requests/estimate", baseURL)
+	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(blob))
+	if err != nil {
+		return nil, err
+	}
+	slurp, _, err := c.doHTTPReq(req)
+	if err != nil {
+		return nil, err
+	}
+
+	upfrontFare := new(UpfrontFare)
+	var blankUFare UpfrontFare
+	if err := json.Unmarshal(slurp, upfrontFare); err != nil {
+		return nil, err
+	}
+	if *upfrontFare == blankUFare {
+		return nil, errNilFare
+	}
+	return upfrontFare, nil
 }

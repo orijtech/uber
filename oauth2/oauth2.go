@@ -16,13 +16,16 @@ package oauth2
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -50,6 +53,29 @@ func TransportWithBase(token *oauth2.Token, base http.RoundTripper) *oauth2.Tran
 	tr := Transport(token)
 	tr.Base = base
 	return tr
+}
+
+var (
+	errNoOAuth2TokenDeserialized = errors.New("unable to deserialize an OAuth2.0 token")
+
+	blankOAuth2Token = oauth2.Token{}
+)
+
+func TransportFromFile(path string) (*oauth2.Transport, error) {
+	blob, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	token := new(oauth2.Token)
+	if err := json.Unmarshal(blob, token); err != nil {
+		return nil, err
+	}
+	if reflect.DeepEqual(blankOAuth2Token, *token) {
+		return nil, errNoOAuth2TokenDeserialized
+	}
+
+	return Transport(token), nil
 }
 
 type tokenSourcer struct {

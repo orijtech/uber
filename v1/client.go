@@ -145,3 +145,11 @@ func NewClientFromOAuth2Token(token *oauth2.Token) (*Client, error) {
 	oauth2Transport := uberOAuth2.Transport(token)
 	return &Client{rt: oauth2Transport}, nil
 }
+
+func NewClientFromOAuth2File(tokenFilepath string) (*Client, error) {
+	oauth2Transport, err := uberOAuth2.TransportFromFile(tokenFilepath)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{rt: oauth2Transport}, nil
+}

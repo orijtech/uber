@@ -26,6 +26,9 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/oauth2"
+
+	uberOAuth2 "github.com/orijtech/uber/oauth2"
 	"github.com/orijtech/uber/v1"
 )
 
@@ -359,6 +362,76 @@ func TestPlaceRetrieval(t *testing.T) {
 	}
 }
 
+var testOAuth2Token1 = &oauth2.Token{
+	AccessToken:  testOAuth2AccessToken1,
+	TokenType:    "Bearer",
+	RefreshToken: "uber-test-refresh-token",
+}
+
+func TestUpfrontFare(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+	testingRoundTripper := &tRoundTripper{route: upfrontFareRoute}
+	transport := uberOAuth2.TransportWithBase(testOAuth2Token1, testingRoundTripper)
+	client.SetHTTPRoundTripper(transport)
+
+	tests := [...]struct {
+		wantErr bool
+		req     *uber.EstimateRequest
+		want    *uber.UpfrontFare
+	}{
+		0: {
+			req: &uber.EstimateRequest{
+				StartPlace: uber.PlaceHome,
+
+				EndLatitude:  37.7752415,
+				EndLongitude: -122.518075,
+			},
+			want: upfrontFareFromFileByID("surge"),
+		},
+		1: {
+			req: &uber.EstimateRequest{
+				StartLatitude:  37.7752415,
+				StartLongitude: -122.518075,
+
+				EndPlace: uber.PlaceWork,
+			},
+			want: upfrontFareFromFileByID("no-surge"),
+		},
+		2: {
+			req:     nil,
+			wantErr: true,
+		},
+	}
+
+	for i, tt := range tests {
+		upfrontFare, err := client.UpfrontFare(tt.req)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		if tt.want == nil {
+			t.Errorf("#%d: inconsistency want is nil", i)
+			continue
+		}
+
+		gotBlob, wantBlob := jsonSerialize(upfrontFare), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
 func TestPlaceUpdate(t *testing.T) {
 	client, err := uber.NewClient(testToken1)
 	if err != nil {
@@ -566,6 +639,7 @@ func makeResp(status string, code int) *http.Response {
 	res := &http.Response{
 		StatusCode: code, Status: status,
 		Header: make(http.Header),
+		Body:   http.NoBody,
 	}
 
 	return res
@@ -593,6 +667,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.getPlacesRoundTrip(req)
 	case updatePlacesRoute:
 		return trt.updatePlacesRoundTrip(req)
+	case upfrontFareRoute:
+		return trt.upfrontFareRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -630,9 +706,9 @@ func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Respons
 }
 
 func (trt *tRoundTripper) applyPromoCodeRoundTrip(req *http.Request) (*http.Response, error) {
-	authResp, _, err := prescreenAuthAndMethod(req, "PATCH")
-	if authResp != nil || err != nil {
-		return authResp, err
+	badAuthResp, _, err := prescreenAuthAndMethod(req, "PATCH")
+	if badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 	if req.Body != nil {
 		defer req.Body.Close()
@@ -654,25 +730,25 @@ func (trt *tRoundTripper) applyPromoCodeRoundTrip(req *http.Request) (*http.Resp
 }
 
 func (trt *tRoundTripper) retrieveProfileRoundTrip(req *http.Request) (*http.Response, error) {
-	authResp, token, err := prescreenAuthAndMethod(req, "GET")
-	if authResp != nil || err != nil {
-		return authResp, err
+	badAuthResp, token, err := prescreenAuthAndMethod(req, "GET")
+	if badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 	resp := responseFromFileContent(profileTokenPath(token))
 	return resp, nil
 }
 
 func (trt *tRoundTripper) estimateTimeRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
-		return authResp, err
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 	resp := responseFromFileContent("./testdata/time-estimate-1.json")
 	return resp, nil
 }
 
 func (trt *tRoundTripper) estimatePriceRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
-		return authResp, err
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 	resp := responseFromFileContent("./testdata/price-estimate-1.json")
 	return resp, nil
@@ -687,8 +763,8 @@ var addressesToIDs = map[string]string{
 }
 
 func (trt *tRoundTripper) getPlacesRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
-		return authResp, err
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 	splits := strings.Split(req.URL.Path, "/")
 	if len(splits) < 2 {
@@ -708,9 +784,56 @@ func (trt *tRoundTripper) getPlacesRoundTrip(req *http.Request) (*http.Response,
 	return responseFromFileContent(diskPath), nil
 }
 
+func (trt *tRoundTripper) upfrontFareRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "POST"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	defer req.Body.Close()
+
+	slurp, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+
+	if len(slurp) < 20 { // Expecting at least body
+		return makeResp("expecting a body", http.StatusBadRequest), nil
+	}
+
+	esReq := new(uber.EstimateRequest)
+	if err := json.Unmarshal(slurp, esReq); err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+
+	diskPath := fareEstimatePath(surgeIDFromPlace(esReq.EndPlace))
+	return responseFromFileContent(diskPath), nil
+}
+
+func fareEstimatePath(suffix string) string {
+	return fmt.Sprintf("./testdata/fare-estimate-%s.json", suffix)
+}
+
+func upfrontFareFromFileByID(id string) *uber.UpfrontFare {
+	path := fareEstimatePath(id)
+	save := new(uber.UpfrontFare)
+	if err := readFromFileAndDeserialize(path, save); err != nil {
+		return nil
+	}
+	return save
+
+}
+
+func surgeIDFromPlace(place uber.PlaceName) string {
+	switch place {
+	default:
+		return "surge"
+	case uber.PlaceWork:
+		return "no-surge"
+	}
+}
+
 func (trt *tRoundTripper) updatePlacesRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "PUT"); authResp != nil || err != nil {
-		return authResp, err
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "PUT"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 	defer req.Body.Close()
 
@@ -738,8 +861,8 @@ func mapPathFromRequestID(tripID string) string {
 }
 
 func (trt *tRoundTripper) requestMapRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
-		return authResp, err
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 
 	pathSplits := strings.Split(req.URL.Path, "/")
@@ -756,8 +879,8 @@ func (trt *tRoundTripper) requestMapRoundTrip(req *http.Request) (*http.Response
 }
 
 func (trt *tRoundTripper) requestReceiptRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
-		return authResp, err
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 
 	pathSplits := strings.Split(req.URL.Path, "/")
@@ -774,8 +897,8 @@ func (trt *tRoundTripper) requestReceiptRoundTrip(req *http.Request) (*http.Resp
 }
 
 func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.Response, error) {
-	if authResp, _, err := prescreenAuthAndMethod(req, "GET"); authResp != nil || err != nil {
-		return authResp, err
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
 	}
 	resp := responseFromFileContent("./testdata/list-payments-1.json")
 	return resp, nil
@@ -865,11 +988,15 @@ func readFromFileAndDeserialize(path string, save interface{}) error {
 const (
 	testToken1 = "TEST_TOKEN-1"
 
+	testOAuth2AccessToken1 = "uber-test-access-token"
+
 	promoCode1 = "pc1"
 )
 
 var authorizedTokens = map[string]bool{
 	testToken1: true,
+
+	testOAuth2AccessToken1: true,
 }
 
 func unauthorizedToken(token string) bool {
@@ -887,4 +1014,5 @@ const (
 	requestReceiptRoute  = "request-receipt"
 	getPlacesRoute       = "get-places"
 	updatePlacesRoute    = "update-places"
+	upfrontFareRoute     = "upfront-fare"
 )
