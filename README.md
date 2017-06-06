@@ -18,6 +18,34 @@ import (
 )
 ```
 
+* Request a ride:
+```go
+func requestARide() {
+	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ride, err := client.RequestRide(&uber.RideRequest{
+		StartLatitude:  37.7752315,
+		StartLongitude: -122.418075,
+		EndLatitude:    37.7752415,
+		EndLongitude:   -122.518075,
+		PromptOnFare: func(fare *uber.UpfrontFare) error {
+			if fare.Fare.Value >= 6.00 {
+				return fmt.Errorf("exercise can't hurt instead of $6.00 for that walk!")
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		log.Fatalf("ride request err: %v", err)
+	}
+
+	fmt.Printf("Your ride information: %+v\n", ride)
+}
+```
+
 * List my payment methods
 ```go
 func allMyPayments() {

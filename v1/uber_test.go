@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -301,6 +302,72 @@ func TestApplyPromoCode(t *testing.T) {
 		gotBlob, wantBlob := jsonSerialize(appliedPromoCode), jsonSerialize(tt.want)
 		if !bytes.Equal(gotBlob, wantBlob) {
 			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
+func TestRequestRide(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: requestRideRoute}
+	transport := uberOAuth2.TransportWithBase(testOAuth2Token1, testingRoundTripper)
+	client.SetHTTPRoundTripper(transport)
+
+	tests := [...]struct {
+		wantErr bool
+		req     *uber.RideRequest
+	}{
+		0: {
+			req:     nil,
+			wantErr: true,
+		},
+		1: {
+			req: &uber.RideRequest{
+				FareID:     "fareID-1",
+				StartPlace: uber.PlaceHome,
+				EndPlace:   uber.PlaceWork,
+			},
+		},
+		2: {
+			req: &uber.RideRequest{
+				StartPlace: uber.PlaceHome,
+				EndPlace:   uber.PlaceWork,
+				PromptOnFare: func(fare *uber.UpfrontFare) error {
+					if fare.Fare.Value >= 0.90 {
+						return fmt.Errorf("times are hard, not paying more than 90 cents!")
+					}
+					return nil
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	blankRide := new(uber.Ride)
+	for i, tt := range tests {
+		ride, err := client.RequestRide(tt.req)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		if ride == nil {
+			t.Errorf("#%d: expecting non-nil ride", i)
+			continue
+		}
+
+		if reflect.DeepEqual(blankRide, ride) {
+			t.Errorf("#%d: expecting a non-blank ride response", i)
 		}
 	}
 }
@@ -648,6 +715,13 @@ func makeResp(status string, code int) *http.Response {
 var _ http.RoundTripper = (*tRoundTripper)(nil)
 
 func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	switch {
+	// For internal redirects that don't use the original
+	// roundtripper, for example when auto-accepting a fare.
+	case req.Method == "POST" && req.URL.Path == "/v1.2/requests/estimate":
+		return trt.upfrontFareRoundTrip(req)
+	}
+
 	switch trt.route {
 	case listPaymentMethods:
 		return trt.listPaymentMethodRoundTrip(req)
@@ -659,6 +733,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.retrieveProfileRoundTrip(req)
 	case applyPromoCodeRoute:
 		return trt.applyPromoCodeRoundTrip(req)
+	case requestRideRoute:
+		return trt.requestRideRoundTrip(req)
 	case requestReceiptRoute:
 		return trt.requestReceiptRoundTrip(req)
 	case getMapRoute:
@@ -703,6 +779,38 @@ func prescreenAuthAndMethod(req *http.Request, wantMethod string) (*http.Respons
 
 	// All passed nothing to report back.
 	return nil, token, nil
+}
+
+func rideFromPath(rideID string) string {
+	return fmt.Sprintf("./testdata/ride-%s.json", rideID)
+}
+
+var blankRideRequest = new(uber.RideRequest)
+
+func (trt *tRoundTripper) requestRideRoundTrip(req *http.Request) (*http.Response, error) {
+	badAuthResp, _, err := prescreenAuthAndMethod(req, "POST")
+	if badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	if req.Body != nil {
+		defer req.Body.Close()
+	}
+
+	slurp, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return makeResp(err.Error(), http.StatusInternalServerError), nil
+	}
+
+	rreq := new(uber.RideRequest)
+	if err := json.Unmarshal(slurp, rreq); err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+	if reflect.DeepEqual(blankRideRequest, rreq) {
+		return makeResp("expecting a valid ride request", http.StatusBadRequest), nil
+	}
+
+	resp := responseFromFileContent(rideFromPath(ride1))
+	return resp, nil
 }
 
 func (trt *tRoundTripper) applyPromoCodeRoundTrip(req *http.Request) (*http.Response, error) {
@@ -991,6 +1099,8 @@ const (
 	testOAuth2AccessToken1 = "uber-test-access-token"
 
 	promoCode1 = "pc1"
+
+	ride1 = "a1111c8c-c720-46c3-8534-2fcdd730040d"
 )
 
 var authorizedTokens = map[string]bool{
@@ -1010,6 +1120,7 @@ const (
 	estimateTimeRoute    = "estimate-times"
 	retrieveProfileRoute = "retrieve-profile"
 	applyPromoCodeRoute  = "apply-promo-code"
+	requestRideRoute     = "request-ride"
 	getMapRoute          = "get-map"
 	requestReceiptRoute  = "request-receipt"
 	getPlacesRoute       = "get-places"
