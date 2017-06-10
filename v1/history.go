@@ -23,8 +23,6 @@ import (
 	"github.com/orijtech/otils"
 )
 
-type Status string
-
 type Trip struct {
 	// Status of the activity. As per API v1.2,
 	// it only return "completed" for now.
