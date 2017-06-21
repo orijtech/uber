@@ -73,14 +73,43 @@ func TestListPaymentMethods(t *testing.T) {
 	}
 }
 
-func TestDeliveryRequest(t *testing.T) {
+func TestCancelDelivery(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: cancelDeliveryRoute}
+	transport := uberOAuth2.TransportWithBase(testOAuth2Token1, backend)
+	client.SetHTTPRoundTripper(transport)
+
+	tests := [...]struct {
+		reqID   string
+		wantErr bool
+	}{
+		0: {"", true},
+		1: {"     ", true},
+		2: {reqID: deliveryID1},
+	}
+
+	for i, tt := range tests {
+		err := client.CancelDelivery(tt.reqID)
+		gotErr := err != nil
+		if gotErr != tt.wantErr {
+			t.Errorf("#%d: gotErr=(%v) wantErr=(%v) err=(%v)", i, gotErr, tt.wantErr, err)
+		}
+	}
+}
+
+func TestRequestDelivery(t *testing.T) {
 	client, err := uber.NewClient(testToken1)
 	if err != nil {
 		t.Fatalf("initializing client; %v", err)
 	}
 
 	backend := &tRoundTripper{route: deliveryRoute}
-	client.SetHTTPRoundTripper(backend)
+	transport := uberOAuth2.TransportWithBase(testOAuth2Token1, backend)
+	client.SetHTTPRoundTripper(transport)
 
 	tests := [...]struct {
 		req     *uber.DeliveryRequest
@@ -918,6 +947,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.upfrontFareRoundTrip(req)
 	case deliveryRoute:
 		return trt.deliveryRoundTrip(req)
+	case cancelDeliveryRoute:
+		return trt.cancelDeliveryRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -1099,7 +1130,35 @@ func deliveryResponsePath(id string) string {
 
 const (
 	deliveryResponseID1 = "gizmo"
+
+	deliveryID1 = "4536381f-2e29-40bb-88eb-004682aa332e"
+	deliveryID2 = "6ef419ce-1003-456c-8884-836f4d669093"
 )
+
+func knownDeliveryID(deliveryID string) bool {
+	switch deliveryID {
+	case deliveryID1, deliveryID2:
+		return true
+	default:
+		return false
+	}
+}
+
+func (trt *tRoundTripper) cancelDeliveryRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "POST"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	splits := strings.Split(req.URL.Path, "/")
+	if len(splits) != 5 || (splits[2] != "deliveries" || splits[4] != "cancel") {
+		resp := makeResp("expecting a path of form: /v1.2/deliveries/<deliveryRequestID>/cancel", http.StatusBadRequest)
+		return resp, nil
+	}
+	deliveryID := splits[3]
+	if !knownDeliveryID(deliveryID) {
+		return makeResp("unknown deliveryID", http.StatusBadRequest), nil
+	}
+	return makeResp("204 No content", http.StatusNoContent), nil
+}
 
 func (trt *tRoundTripper) deliveryRoundTrip(req *http.Request) (*http.Response, error) {
 	if badAuthResp, _, err := prescreenAuthAndMethod(req, "POST"); badAuthResp != nil || err != nil {
@@ -1370,4 +1429,5 @@ const (
 	upfrontFareRoute     = "upfront-fare"
 	deliveryRoute        = "delivery"
 	sandboxTesterRoute   = "sandbox-test"
+	cancelDeliveryRoute  = "cancel-delivery"
 )

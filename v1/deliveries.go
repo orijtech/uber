@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/orijtech/otils"
 )
@@ -210,7 +211,7 @@ func (c *Client) RequestDelivery(req *DeliveryRequest) (*DeliveryResponse, error
 		return nil, err
 	}
 
-	blob, _, err = c.doAuthAndHTTPReq(httpReq)
+	blob, _, err = c.doHTTPReq(httpReq)
 	if err != nil {
 		return nil, err
 	}
@@ -219,4 +220,23 @@ func (c *Client) RequestDelivery(req *DeliveryRequest) (*DeliveryResponse, error
 		return nil, err
 	}
 	return dRes, nil
+}
+
+var errBlankDeliveryID = errors.New("expecting a non-blank deliveryID")
+
+// CancelDelivery cancels a delivery referenced by its ID. There are
+// potential cancellation fees associated.
+// See https://developer.uber.com/docs/deliveries/faq for more information.
+func (c *Client) CancelDelivery(deliveryID string) error {
+	deliveryID = strings.TrimSpace(deliveryID)
+	if deliveryID == "" {
+		return errBlankDeliveryID
+	}
+	theURL := fmt.Sprintf("%s/deliveries/%s/cancel", c.baseURL(), deliveryID)
+	httpReq, err := http.NewRequest("POST", theURL, nil)
+	if err != nil {
+		return err
+	}
+	_, _, err = c.doHTTPReq(httpReq)
+	return err
 }

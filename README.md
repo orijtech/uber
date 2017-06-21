@@ -396,3 +396,20 @@ func requestDelivery() {
 	log.Printf("The confirmation: %+v\n", deliveryConfirmation)
 }
 ```
+
+* Cancel a delivery
+```go
+func cancelDelivery() {
+	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err := client.CancelDelivery("71a969ca-5359-4334-a7b7-5a1705869c51")
+	if err == nil {
+		log.Printf("Successfully canceled that delivery!")
+	} else {
+		log.Printf("Failed to cancel that delivery, err: %v", err)
+	}
+}
+```

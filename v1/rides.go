@@ -158,7 +158,7 @@ func (c *Client) RequestRide(rreq *RideRequest) (*Ride, error) {
 	if err != nil {
 		return nil, err
 	}
-	blob, _, err = c.doAuthAndHTTPReq(req)
+	blob, _, err = c.doHTTPReq(req)
 	if err != nil {
 		return nil, err
 	}
