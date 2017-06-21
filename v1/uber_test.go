@@ -73,6 +73,105 @@ func TestListPaymentMethods(t *testing.T) {
 	}
 }
 
+func TestDeliveryRequest(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: deliveryRoute}
+	client.SetHTTPRoundTripper(backend)
+
+	tests := [...]struct {
+		req     *uber.DeliveryRequest
+		want    *uber.DeliveryResponse
+		wantErr bool
+	}{
+		0: {
+			req:     &uber.DeliveryRequest{},
+			wantErr: true,
+		},
+		1: {
+			req:     nil,
+			wantErr: true,
+		},
+		2: {
+			req:     &uber.DeliveryRequest{},
+			wantErr: true,
+		},
+		3: {
+			req: &uber.DeliveryRequest{
+				Pickup: &uber.Endpoint{
+					Contact: &uber.Contact{
+						CompanyName:          "orijtech",
+						Email:                "deliveries@orijtech.com",
+						SendSMSNotifications: true,
+					},
+					Location: &uber.Location{
+						PrimaryAddress: "Empire State Building",
+						State:          "NY",
+						Country:        "US",
+					},
+					SpecialInstructions: "Please ask guest services for \"I Man\"",
+				},
+				Dropoff: &uber.Endpoint{
+					Contact: &uber.Contact{
+						FirstName:   "delivery",
+						LastName:    "bot",
+						CompanyName: "Uber",
+
+						SendEmailNotifications: true,
+					},
+					Location: &uber.Location{
+						PrimaryAddress:   "530 W 113th Street",
+						SecondaryAddress: "Floor 2",
+						Country:          "US",
+						PostalCode:       "10025",
+						State:            "NY",
+					},
+				},
+				Items: []*uber.Item{
+					{
+						Title:    "phone chargers",
+						Quantity: 10,
+					},
+					{
+						Title:    "Blue prints",
+						Fragile:  true,
+						Quantity: 1,
+					},
+				},
+			},
+			want: deliveryResponseFromFile(deliveryResponsePath(deliveryResponseID1)),
+		},
+	}
+
+	for i, tt := range tests {
+		dres, err := client.RequestDelivery(tt.req)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: want non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: unexpected err: %v", i, err)
+			continue
+		}
+
+		if dres == nil {
+			t.Errorf("#%d: expecting non-nil delivery response", i)
+			continue
+		}
+		gotBytes := jsonSerialize(dres)
+		wantBytes := jsonSerialize(tt.want)
+		if !bytes.Equal(gotBytes, wantBytes) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBytes, wantBytes)
+		}
+	}
+}
+
 type sandboxState string
 
 const (
@@ -817,6 +916,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.updatePlacesRoundTrip(req)
 	case upfrontFareRoute:
 		return trt.upfrontFareRoundTrip(req)
+	case deliveryRoute:
+		return trt.deliveryRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -992,6 +1093,39 @@ func (trt *tRoundTripper) sandboxTestRoundTrip(req *http.Request) (*http.Respons
 	return resp, nil
 }
 
+func deliveryResponsePath(id string) string {
+	return fmt.Sprintf("./testdata/delivery-%s.json", id)
+}
+
+const (
+	deliveryResponseID1 = "gizmo"
+)
+
+func (trt *tRoundTripper) deliveryRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "POST"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	defer req.Body.Close()
+
+	slurp, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+
+	dreq := new(uber.DeliveryRequest)
+	if err := json.Unmarshal(slurp, dreq); err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+	if err := dreq.Validate(); err != nil {
+		return makeResp(err.Error(), http.StatusBadRequest), nil
+	}
+
+	// Otherwise all clear as far as the
+	// validations for the client library's request.
+	diskPath := deliveryResponsePath(deliveryResponseID1)
+	return responseFromFileContent(diskPath), nil
+}
+
 func (trt *tRoundTripper) upfrontFareRoundTrip(req *http.Request) (*http.Response, error) {
 	if badAuthResp, _, err := prescreenAuthAndMethod(req, "POST"); badAuthResp != nil || err != nil {
 		return badAuthResp, err
@@ -1157,6 +1291,14 @@ func priceEstimateFromFile(path string) []*uber.PriceEstimate {
 	return save.Estimates
 }
 
+func deliveryResponseFromFile(path string) *uber.DeliveryResponse {
+	save := new(uber.DeliveryResponse)
+	if err := readFromFileAndDeserialize(path, save); err != nil {
+		return nil
+	}
+	return save
+}
+
 func receiptFromFile(requestID string) *uber.Receipt {
 	save := new(uber.Receipt)
 	path := receiptPathFromRequestID(requestID)
@@ -1226,5 +1368,6 @@ const (
 	getPlacesRoute       = "get-places"
 	updatePlacesRoute    = "update-places"
 	upfrontFareRoute     = "upfront-fare"
+	deliveryRoute        = "delivery"
 	sandboxTesterRoute   = "sandbox-test"
 )

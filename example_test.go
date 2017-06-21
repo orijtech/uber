@@ -364,3 +364,58 @@ func Example_client_RequestRide() {
 
 	fmt.Printf("Your ride information: %+v\n", ride)
 }
+
+func Example_client_RequestDelivery() {
+	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	deliveryConfirmation, err := client.RequestDelivery(&uber.DeliveryRequest{
+		Pickup: &uber.Endpoint{
+			Contact: &uber.Contact{
+				CompanyName:          "orijtech",
+				Email:                "deliveries@orijtech.com",
+				SendSMSNotifications: true,
+			},
+			Location: &uber.Location{
+				PrimaryAddress: "Empire State Building",
+				State:          "NY",
+				Country:        "US",
+			},
+			SpecialInstructions: "Please ask guest services for \"I Man\"",
+		},
+		Dropoff: &uber.Endpoint{
+			Contact: &uber.Contact{
+				FirstName:   "delivery",
+				LastName:    "bot",
+				CompanyName: "Uber",
+
+				SendEmailNotifications: true,
+			},
+			Location: &uber.Location{
+				PrimaryAddress:   "530 W 113th Street",
+				SecondaryAddress: "Floor 2",
+				Country:          "US",
+				PostalCode:       "10025",
+				State:            "NY",
+			},
+		},
+		Items: []*uber.Item{
+			{
+				Title:    "phone chargers",
+				Quantity: 10,
+			},
+			{
+				Title:    "Blue prints",
+				Fragile:  true,
+				Quantity: 1,
+			},
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("The confirmation: %+v\n", deliveryConfirmation)
+}

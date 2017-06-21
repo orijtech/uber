@@ -229,10 +229,19 @@ type Driver struct {
 	Rating     int    `json:"rating"`
 }
 
+type State string
+
 type Location struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
 
 	// Bearing is the current bearing of the vehicle in degrees (0-359).
-	Bearing int `json:"bearing"`
+	Bearing int `json:"bearing,omitempty"`
+
+	PrimaryAddress   string `json:"address,omitempty"`
+	SecondaryAddress string `json:"address_2,omitempty"`
+	City             string `json:"city,omitempty"`
+	State            string `json:"state,omitempty"`
+	PostalCode       string `json:"postal_code,omitempty"`
+	Country          string `json:"country,omitempty"`
 }
