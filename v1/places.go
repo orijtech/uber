@@ -30,7 +30,7 @@ const (
 )
 
 func (c *Client) Place(placeName PlaceName) (*Place, error) {
-	fullURL := fmt.Sprintf("%s/places/%s", baseURL, placeName)
+	fullURL := fmt.Sprintf("%s/places/%s", c.baseURL(), placeName)
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (c *Client) UpdatePlace(pp *PlaceParams) (*Place, error) {
 		return nil, err
 	}
 
-	fullURL := fmt.Sprintf("%s/places/%s", baseURL, pp.Place)
+	fullURL := fmt.Sprintf("%s/places/%s", c.baseURL(), pp.Place)
 	req, err := http.NewRequest("PUT", fullURL, bytes.NewReader(blob))
 	if err != nil {
 		return nil, err

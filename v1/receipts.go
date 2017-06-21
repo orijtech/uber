@@ -62,7 +62,7 @@ func (c *Client) RequestReceipt(receiptID string) (*Receipt, error) {
 		return nil, errEmptyReceiptID
 	}
 
-	fullURL := fmt.Sprintf("%s/requests/%s/receipt", baseURL, receiptID)
+	fullURL := fmt.Sprintf("%s/requests/%s/receipt", c.baseURL(), receiptID)
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err

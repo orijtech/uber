@@ -30,8 +30,6 @@ import (
 	uberOAuth2 "github.com/orijtech/uber/oauth2"
 )
 
-const baseURL = "https://api.uber.com/v1.2"
-
 const envUberTokenKey = "UBER_TOKEN_KEY"
 
 var errUnsetTokenEnvKey = fmt.Errorf("could not find %q in your environment", envUberTokenKey)
@@ -39,8 +37,40 @@ var errUnsetTokenEnvKey = fmt.Errorf("could not find %q in your environment", en
 type Client struct {
 	sync.RWMutex
 
-	rt    http.RoundTripper
-	token string
+	rt        http.RoundTripper
+	token     string
+	sandboxed bool
+}
+
+// Sandboxed if set to true, the client will send requests
+// to the sandboxed API endpoint.
+// See:
+// + https://developer.uber.com/docs/riders/guides/sandbox
+// + https://developer.uber.com/docs/drivers
+func (c *Client) SetSandboxMode(sandboxed bool) {
+	c.Lock()
+	c.sandboxed = sandboxed
+	c.Unlock()
+}
+
+func (c *Client) Sandboxed() bool {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.sandboxed
+}
+
+func (c *Client) baseURL() string {
+	// Setting the baseURLs in here to ensure that no-one mistakenly
+	// directly invokes baseURL or sandboxBaseURL.
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.sandboxed {
+		return "https://sandbox-api.uber.com/v1.2"
+	} else { // Invoking the production endpoint
+		return "https://api.uber.com/v1.2"
+	}
 }
 
 func NewClient(tokens ...string) (*Client, error) {
@@ -52,6 +82,22 @@ func NewClient(tokens ...string) (*Client, error) {
 	return NewClientFromEnv()
 }
 
+func NewSandboxedClient(tokens ...string) (*Client, error) {
+	c, err := NewClient(tokens...)
+	if err == nil && c != nil {
+		c.SetSandboxMode(true)
+	}
+	return c, err
+}
+
+func NewSandboxedClientFromEnv() (*Client, error) {
+	c, err := NewClientFromEnv()
+	if err == nil && c != nil {
+		c.SetSandboxMode(true)
+	}
+	return c, err
+}
+
 func NewClientFromEnv() (*Client, error) {
 	retrToken := strings.TrimSpace(os.Getenv(envUberTokenKey))
 	if retrToken == "" {
@@ -59,7 +105,6 @@ func NewClientFromEnv() (*Client, error) {
 	}
 
 	return &Client{token: retrToken}, nil
-
 }
 
 func (c *Client) SetHTTPRoundTripper(rt http.RoundTripper) {

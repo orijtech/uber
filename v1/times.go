@@ -101,7 +101,7 @@ func (c *Client) EstimateTime(treq *EstimateRequest) (pagesChan chan *TimeEstima
 				return
 			}
 
-			fullURL := fmt.Sprintf("%s/estimates/time?%s", baseURL, qv.Encode())
+			fullURL := fmt.Sprintf("%s/estimates/time?%s", c.baseURL(), qv.Encode())
 			req, err := http.NewRequest("GET", fullURL, nil)
 			if err != nil {
 				tp.Err = err

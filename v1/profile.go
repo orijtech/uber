@@ -47,7 +47,7 @@ type Profile struct {
 }
 
 func (c *Client) RetrieveMyProfile() (*Profile, error) {
-	fullURL := fmt.Sprintf("%s/me", baseURL)
+	fullURL := fmt.Sprintf("%s/me", c.baseURL())
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (c *Client) ApplyPromoCode(promoCode string) (*PromoCode, error) {
 	if err != nil {
 		return nil, err
 	}
-	fullURL := fmt.Sprintf("%s/me", baseURL)
+	fullURL := fmt.Sprintf("%s/me", c.baseURL())
 	req, err := http.NewRequest("PATCH", fullURL, bytes.NewReader(blob))
 	if err != nil {
 		return nil, err

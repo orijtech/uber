@@ -130,7 +130,7 @@ type PaymentListing struct {
 }
 
 func (c *Client) ListPaymentMethods() (*PaymentListing, error) {
-	fullURL := fmt.Sprintf("%s/payment-methods", baseURL)
+	fullURL := fmt.Sprintf("%s/payment-methods", c.baseURL())
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err

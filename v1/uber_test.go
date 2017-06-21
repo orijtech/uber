@@ -73,6 +73,73 @@ func TestListPaymentMethods(t *testing.T) {
 	}
 }
 
+type sandboxState string
+
+const (
+	sandboxUnknown    sandboxState = "unknown"
+	sandboxSandbox    sandboxState = "sandboxed"
+	sandboxProduction sandboxState = "production"
+)
+
+func TestClientSandboxing(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: sandboxTesterRoute}
+	client.SetHTTPRoundTripper(backend)
+
+	tests := [...]struct {
+		do func(c *uber.Client)
+
+		sandboxed bool
+		want      sandboxState
+	}{
+
+		0: {
+			want:      sandboxProduction,
+			sandboxed: false,
+
+			do: func(c *uber.Client) {
+				resChan, _, _ := c.EstimatePrice(&uber.EstimateRequest{
+					StartLatitude:  37.7752315,
+					EndLatitude:    37.7752415,
+					StartLongitude: -122.418075,
+					EndLongitude:   -122.518075,
+				})
+				for res := range resChan {
+					if false {
+						t.Logf("res: %#v\n", res)
+					}
+				}
+			},
+		},
+		1: {
+			want:      sandboxSandbox,
+			sandboxed: true,
+
+			do: func(c *uber.Client) {
+				_, _ = c.RequestRide(&uber.RideRequest{
+					FareID:     "fareID-1",
+					StartPlace: uber.PlaceHome,
+					EndPlace:   uber.PlaceWork,
+				})
+			},
+		},
+	}
+
+	for i, tt := range tests {
+		client.SetSandboxMode(tt.sandboxed)
+		tt.do(client)
+
+		got := backend.exhaust.(sandboxState)
+		if want := tt.want; got != want {
+			t.Errorf("#%d: sandboxed: got=(%v) want=(%v)", i, got, want)
+		}
+	}
+}
+
 func TestListHistory(t *testing.T) {
 	t.Skipf("Needs quite detailed data and intricate tests with paging")
 
@@ -700,6 +767,8 @@ func jsonSerialize(v interface{}) []byte {
 
 type tRoundTripper struct {
 	route string
+
+	exhaust interface{}
 }
 
 func makeResp(status string, code int) *http.Response {
@@ -716,6 +785,9 @@ var _ http.RoundTripper = (*tRoundTripper)(nil)
 
 func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch {
+	case trt.route == sandboxTesterRoute:
+		return trt.sandboxTestRoundTrip(req)
+
 	// For internal redirects that don't use the original
 	// roundtripper, for example when auto-accepting a fare.
 	case req.Method == "POST" && req.URL.Path == "/v1.2/requests/estimate":
@@ -890,6 +962,34 @@ func (trt *tRoundTripper) getPlacesRoundTrip(req *http.Request) (*http.Response,
 	pathID := addressesToIDs[placeID]
 	diskPath := placePathFromID(pathID)
 	return responseFromFileContent(diskPath), nil
+}
+
+func (trt *tRoundTripper) sandboxTestRoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Body != nil {
+		defer req.Body.Close()
+	}
+
+	host := req.URL.Host
+	var exhaust sandboxState
+
+	if strings.HasPrefix(host, "sandbox-api.uber.com") {
+		exhaust = sandboxSandbox
+	} else if strings.HasPrefix(host, "api.uber.com") {
+		exhaust = sandboxProduction
+	} else {
+		exhaust = sandboxUnknown
+	}
+
+	trt.exhaust = exhaust
+	prc, pwc := io.Pipe()
+	go func() {
+		pwc.Write([]byte("{}"))
+		pwc.Close()
+	}()
+	resp := makeResp("200 OK", http.StatusNoContent)
+	resp.Body = prc
+
+	return resp, nil
 }
 
 func (trt *tRoundTripper) upfrontFareRoundTrip(req *http.Request) (*http.Response, error) {
@@ -1126,4 +1226,5 @@ const (
 	getPlacesRoute       = "get-places"
 	updatePlacesRoute    = "update-places"
 	upfrontFareRoute     = "upfront-fare"
+	sandboxTesterRoute   = "sandbox-test"
 )

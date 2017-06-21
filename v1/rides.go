@@ -153,7 +153,7 @@ func (c *Client) RequestRide(rreq *RideRequest) (*Ride, error) {
 	if err != nil {
 		return nil, err
 	}
-	fullURL := fmt.Sprintf("%s/requests", baseURL)
+	fullURL := fmt.Sprintf("%s/requests", c.baseURL())
 	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(blob))
 	if err != nil {
 		return nil, err

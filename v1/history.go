@@ -139,7 +139,7 @@ func (c *Client) ListHistory(threq *Pager) (thChan chan *TripThreadPage, cancelF
 				return
 			}
 
-			fullURL := fmt.Sprintf("%s/history?%s", baseURL, qv.Encode())
+			fullURL := fmt.Sprintf("%s/history?%s", c.baseURL(), qv.Encode())
 			req, err := http.NewRequest("GET", fullURL, nil)
 			if err != nil {
 				ttp.Err = err

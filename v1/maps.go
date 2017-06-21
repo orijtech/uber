@@ -39,7 +39,7 @@ func (c *Client) RequestMap(tripID string) (*Map, error) {
 		return nil, errEmptyTripID
 	}
 
-	fullURL := fmt.Sprintf("%s/requests/%s/map", baseURL, tripID)
+	fullURL := fmt.Sprintf("%s/requests/%s/map", c.baseURL(), tripID)
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err

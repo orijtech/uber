@@ -140,7 +140,7 @@ func (c *Client) EstimatePrice(ereq *EstimateRequest) (pagesChan chan *PriceEsti
 				return
 			}
 
-			fullURL := fmt.Sprintf("%s/estimates/price?%s", baseURL, qv.Encode())
+			fullURL := fmt.Sprintf("%s/estimates/price?%s", c.baseURL(), qv.Encode())
 			req, err := http.NewRequest("GET", fullURL, nil)
 			if err != nil {
 				ep.Err = err
@@ -278,7 +278,7 @@ func (c *Client) UpfrontFare(esReq *EstimateRequest) (*UpfrontFare, error) {
 		return nil, err
 	}
 
-	fullURL := fmt.Sprintf("%s/requests/estimate", baseURL)
+	fullURL := fmt.Sprintf("%s/requests/estimate", c.baseURL())
 	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(blob))
 	if err != nil {
 		return nil, err
