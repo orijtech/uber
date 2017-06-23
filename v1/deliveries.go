@@ -240,3 +240,17 @@ func (c *Client) CancelDelivery(deliveryID string) error {
 	_, _, err = c.doHTTPReq(httpReq)
 	return err
 }
+
+type DeliveryRegions struct {
+	Regions []*Region `json:"regions"`
+}
+
+type Region struct {
+	City     string     `json:"city"`
+	Country  string     `json:"country"`
+	Type     string     `json:"type"`
+	Features []*Feature `json:"features"`
+}
+
+func (c *Client) ListDeliveryRegions() (*DeliveryRegions, error) {
+}

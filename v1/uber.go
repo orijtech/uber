@@ -87,3 +87,47 @@ func (sce *statusCodedError) Error() string {
 	}
 	return sce.memoizedErr
 }
+
+// GeoCoord is a struct to simplify unpacking
+// the results of GeoJSON sent in the form
+//    [Lat, Lon]
+// which becomes inconvenient when used in
+// code ie g[0], g[1] instead of just
+// g.Latitude, g.Longitude.
+type GeoCoord struct {
+	Latitude  float32 `json:"latitude"`
+	Longitude float32 `json:"longitude"`
+}
+
+var _ json.Unmarshaler = (*GeoCoord)(nil)
+var _ json.Marshaler = (*GeoCoord)(nil)
+
+func (gc *GeoCoord) UnmarshalJSON(b []byte) error {
+	var coordSlice []float32
+	if err := json.Unmarshal(b, &coordSlice); err != nil {
+		return err
+	}
+
+	gc.Latitude = coordSlice[0]
+	gc.Longitude = coordSlice[1]
+	return nil
+}
+
+func (gc *GeoCoord) MarshalJSON() ([]byte, error) {
+	outRepr := []float32{gc.Latitude, gc.Longitude}
+	return json.Marshal(outRepr)
+}
+
+type FeatureType string
+
+type Feature struct {
+	Type       FeatureType `json:"type"`
+	Properties interface{} `json:"properties"`
+	Geometry   *Geometry   `json:"geometry"`
+}
+
+type Geometry struct {
+	Type string `json:"type"`
+
+	Coordinates []*GeoCoord `json:"coordinates"`
+}
