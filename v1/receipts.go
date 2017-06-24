@@ -68,7 +68,7 @@ func (c *Client) RequestReceipt(receiptID string) (*Receipt, error) {
 		return nil, err
 	}
 
-	slurp, _, err := c.doAuthAndHTTPReq(req)
+	slurp, _, err := c.doReq(req)
 	if err != nil {
 		return nil, err
 	}

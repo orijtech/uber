@@ -17,12 +17,13 @@ package uber_test
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/orijtech/uber/v1"
 )
 
 func Example_client_ListPaymentMethods() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,7 +42,7 @@ func Example_client_ListPaymentMethods() {
 }
 
 func Example_client_ListHistory() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -78,7 +79,7 @@ func Example_client_ListHistory() {
 }
 
 func Example_client_ListAllMyHistory() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -110,7 +111,7 @@ func Example_client_ListAllMyHistory() {
 }
 
 func Example_client_EstimatePrice() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,10 +144,12 @@ func Example_client_EstimatePrice() {
 			cancelPaging()
 		}
 	}
+// Output:
+// WW
 }
 
 func Example_client_EstimateTime() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -181,10 +184,12 @@ func Example_client_EstimateTime() {
 			cancelPaging()
 		}
 	}
+// Output:
+// WW
 }
 
 func Example_client_RetrieveMyProfile() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -198,7 +203,7 @@ func Example_client_RetrieveMyProfile() {
 }
 
 func Example_client_ApplyPromoCode() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -226,7 +231,7 @@ func Example_client_RequestReceipt() {
 }
 
 func Example_client_RetrieveHomeAddress() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -240,7 +245,7 @@ func Example_client_RetrieveHomeAddress() {
 }
 
 func Example_client_RetrieveWorkAddress() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -254,7 +259,7 @@ func Example_client_RetrieveWorkAddress() {
 }
 
 func Example_client_UpdateHomeAddress() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -271,7 +276,7 @@ func Example_client_UpdateHomeAddress() {
 }
 
 func Example_client_UpdateWorkAddress() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -288,7 +293,7 @@ func Example_client_UpdateWorkAddress() {
 }
 
 func Example_client_RequestMap() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -302,18 +307,18 @@ func Example_client_RequestMap() {
 }
 
 func Example_client_OpenMap() {
-	client, err := uber.NewClient()
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := client.OpenMapForTrip("b5512127-a134-4bf4-b1ba-fe9f48f56d9d"); err != nil {
+	if err := client.OpenMapForTrip("64561dfe-87fa-41d7-807e-f364527b11cb"); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func Example_client_UpfrontFare() {
-	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -341,7 +346,7 @@ func Example_client_UpfrontFare() {
 }
 
 func Example_client_RequestRide() {
-	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -366,7 +371,7 @@ func Example_client_RequestRide() {
 }
 
 func Example_client_RequestDelivery() {
-	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -421,15 +426,50 @@ func Example_client_RequestDelivery() {
 }
 
 func Example_client_CancelDelivery() {
-	client, err := uber.NewClientFromOAuth2File("./testdata/.uber/credentials.json")
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err := client.CancelDelivery("71a969ca-5359-4334-a7b7-5a1705869c51")
+	err = client.CancelDelivery("71a969ca-5359-4334-a7b7-5a1705869c51")
 	if err == nil {
 		log.Printf("Successfully canceled that delivery!")
 	} else {
 		log.Printf("Failed to cancel that delivery, err: %v", err)
 	}
+}
+
+func Example_client_ListProducts() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	products, err := client.ListProducts(&uber.Place{
+		Latitude:  38.8971,
+		Longitude: -77.0366,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for i, product := range products {
+		fmt.Printf("#%d: ID: %q Product: %#v\n", i, product.ID, product)
+	}
+// Output:
+// WW
+}
+
+func Example_client_ProductByID() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	product, err := client.ProductByID("bc300c14-c30d-4d3f-afcb-19b240c16a13")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("The Product information: %#v\n", product)
 }

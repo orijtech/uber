@@ -101,6 +101,10 @@ func (pm *PaymentMethod) PaymentMethodToString() string {
 	return paymentMethodToString[*pm]
 }
 
+func (pm PaymentMethod) String() string {
+	return pm.PaymentMethodToString()
+}
+
 func StringToPaymentMethod(str string) PaymentMethod {
 	pm, ok := stringToPaymentMethod[str]
 	if !ok {
@@ -138,7 +142,7 @@ func (c *Client) ListPaymentMethods() (*PaymentListing, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept-Language", "en_US")
 
-	slurp, _, err := c.doAuthAndHTTPReq(req)
+	slurp, _, err := c.doReq(req)
 	if err != nil {
 		return nil, err
 	}

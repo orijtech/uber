@@ -148,7 +148,7 @@ func (c *Client) EstimatePrice(ereq *EstimateRequest) (pagesChan chan *PriceEsti
 				return
 			}
 
-			slurp, _, err := c.doAuthAndHTTPReq(req)
+			slurp, _, err := c.doReq(req)
 			if err != nil {
 				ep.Err = err
 				estimatesPageChan <- ep
@@ -283,7 +283,8 @@ func (c *Client) UpfrontFare(esReq *EstimateRequest) (*UpfrontFare, error) {
 	if err != nil {
 		return nil, err
 	}
-	slurp, _, err := c.doHTTPReq(req)
+	req.Header.Set("Content-Type", "application/json")
+	slurp, _, err := c.doReq(req)
 	if err != nil {
 		return nil, err
 	}

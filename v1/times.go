@@ -109,7 +109,7 @@ func (c *Client) EstimateTime(treq *EstimateRequest) (pagesChan chan *TimeEstima
 				return
 			}
 
-			slurp, _, err := c.doAuthAndHTTPReq(req)
+			slurp, _, err := c.doReq(req)
 			if err != nil {
 				tp.Err = err
 				estimatesPageChan <- tp

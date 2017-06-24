@@ -73,6 +73,96 @@ func TestListPaymentMethods(t *testing.T) {
 	}
 }
 
+func TestListProducts(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: listProducts}
+	client.SetHTTPRoundTripper(backend)
+
+	tests := [...]struct {
+		place   *uber.Place
+		wantErr bool
+	}{
+		0: {
+			place: nil, wantErr: true,
+		},
+		1: {
+			place: &uber.Place{},
+		},
+		2: {
+			place: &uber.Place{Latitude: 53.555},
+		},
+	}
+
+	for i, tt := range tests {
+		products, err := client.ListProducts(tt.place)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: expected a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: got err: %v want nil error", i, err)
+			continue
+		}
+
+		if len(products) == 0 {
+			t.Errorf("#%d: expecting at least one product", i)
+		}
+	}
+}
+
+var blankProductPtr = new(uber.Product)
+
+func TestProductByID(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: productByID}
+	client.SetHTTPRoundTripper(backend)
+
+	tests := [...]struct {
+		productID string
+		wantErr   bool
+	}{
+		0: {
+			productID: "", wantErr: true,
+		},
+		1: {
+			productID: "     ", wantErr: true,
+		},
+		2: {
+			productID: "a1111c8c-c720-46c3-8534-2fcdd730040d",
+		},
+	}
+
+	for i, tt := range tests {
+		product, err := client.ProductByID(tt.productID)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: expected a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: got err: %v want nil error", i, err)
+			continue
+		}
+
+		if product == nil || reflect.DeepEqual(product, blankProductPtr) {
+			t.Errorf("#%d: expecting a non-blank product", i)
+		}
+	}
+}
+
 func TestCancelDelivery(t *testing.T) {
 	client, err := uber.NewClient(testToken1)
 	if err != nil {
@@ -925,6 +1015,10 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch trt.route {
 	case listPaymentMethods:
 		return trt.listPaymentMethodRoundTrip(req)
+	case listProducts:
+		return trt.listProductsRoundTrip(req)
+	case productByID:
+		return trt.productByIDRoundTrip(req)
 	case estimatePriceRoute:
 		return trt.estimatePriceRoundTrip(req)
 	case estimateTimeRoute:
@@ -1297,6 +1391,32 @@ func (trt *tRoundTripper) requestReceiptRoundTrip(req *http.Request) (*http.Resp
 	return resp, nil
 }
 
+func (trt *tRoundTripper) listProductsRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	resp := responseFromFileContent("./testdata/listProducts.json")
+	return resp, nil
+}
+
+func (trt *tRoundTripper) productByIDRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	splits := strings.Split(req.URL.Path, "/")
+	// Expecting the form: /v1.2/products/<productID>
+	if len(splits) != 4 || splits[2] != "products" {
+		resp := makeResp("expecting URL of form /v1.2/products/<productID>", http.StatusBadRequest)
+		return resp, nil
+	}
+
+	productID := splits[len(splits)-1]
+
+	diskPath := fmt.Sprintf("./testdata/product-%s.json", productID)
+	resp := responseFromFileContent(diskPath)
+	return resp, nil
+}
+
 func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.Response, error) {
 	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
 		return badAuthResp, err
@@ -1417,6 +1537,8 @@ func unauthorizedToken(token string) bool {
 
 const (
 	listPaymentMethods   = "list-payment-methods"
+	listProducts         = "list-products"
+	productByID          = "product-by-id"
 	estimatePriceRoute   = "estimate-prices"
 	estimateTimeRoute    = "estimate-times"
 	retrieveProfileRoute = "retrieve-profile"

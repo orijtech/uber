@@ -147,7 +147,7 @@ func (c *Client) ListHistory(threq *Pager) (thChan chan *TripThreadPage, cancelF
 				return
 			}
 
-			slurp, _, err := c.doAuthAndHTTPReq(req)
+			slurp, _, err := c.doReq(req)
 			if err != nil {
 				ttp.Err = err
 				historyChan <- ttp

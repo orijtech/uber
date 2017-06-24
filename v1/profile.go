@@ -52,7 +52,7 @@ func (c *Client) RetrieveMyProfile() (*Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	slurp, _, err := c.doAuthAndHTTPReq(req)
+	slurp, _, err := c.doReq(req)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,8 @@ func (c *Client) ApplyPromoCode(promoCode string) (*PromoCode, error) {
 	if err != nil {
 		return nil, err
 	}
-	slurp, _, err := c.doAuthAndHTTPReq(req)
+	req.Header.Set("Content-Type", "application/json")
+	slurp, _, err := c.doReq(req)
 	if err != nil {
 		return nil, err
 	}
