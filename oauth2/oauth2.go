@@ -36,6 +36,7 @@ import (
 type OAuth2AppConfig struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
+	RedirectURL  string `json:"redirect_url"`
 }
 
 var (
@@ -195,9 +196,15 @@ func Authorize(oconfig *OAuth2AppConfig, scopes ...string) (*oauth2.Token, error
 			AuthURL:  OAuth2AuthURL,
 			TokenURL: OAuth2TokenURL,
 		},
+		RedirectURL: oconfig.RedirectURL,
 	}
 
-	state := fmt.Sprintf("%v%s", time.Now().Unix(), rand.Float32())
+	srvAddr := ":8889"
+	if config.RedirectURL == "" {
+		config.RedirectURL = fmt.Sprintf("http://localhost%s/", srvAddr)
+	}
+
+	state := fmt.Sprintf("%v%f", time.Now().Unix(), rand.Float32())
 	urlToVisit := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	fmt.Printf("Please visit this URL for the auth dialog: %v\n", urlToVisit)
 
@@ -210,8 +217,7 @@ func Authorize(oconfig *OAuth2AppConfig, scopes ...string) (*oauth2.Token, error
 		})
 
 		defer close(callbackURLChan)
-		addr := ":8889"
-		if err := http.ListenAndServe(addr, nil); err != nil {
+		if err := http.ListenAndServe(srvAddr, nil); err != nil {
 			log.Fatal(err)
 		}
 	}()

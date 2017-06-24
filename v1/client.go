@@ -42,6 +42,13 @@ type Client struct {
 	sandboxed bool
 }
 
+func (c *Client) hasServerToken() bool {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.token != ""
+}
+
 // Sandboxed if set to true, the client will send requests
 // to the sandboxed API endpoint.
 // See:
@@ -148,6 +155,13 @@ func (c *Client) tokenToken() string {
 
 func (c *Client) doAuthAndHTTPReq(req *http.Request) ([]byte, http.Header, error) {
 	req.Header.Set("Authorization", c.bearerToken())
+	return c.doHTTPReq(req)
+}
+
+func (c *Client) doReq(req *http.Request) ([]byte, http.Header, error) {
+	if c.hasServerToken() {
+		req.Header.Set("Authorization", c.bearerToken())
+	}
 	return c.doHTTPReq(req)
 }
 

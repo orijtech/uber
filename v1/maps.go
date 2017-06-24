@@ -45,7 +45,7 @@ func (c *Client) RequestMap(tripID string) (*Map, error) {
 		return nil, err
 	}
 
-	slurp, _, err := c.doAuthAndHTTPReq(req)
+	slurp, _, err := c.doReq(req)
 	if err != nil {
 		return nil, err
 	}

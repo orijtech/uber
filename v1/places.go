@@ -39,7 +39,7 @@ func (c *Client) Place(placeName PlaceName) (*Place, error) {
 }
 
 func (c *Client) doPlaceReq(req *http.Request) (*Place, error) {
-	slurp, _, err := c.doAuthAndHTTPReq(req)
+	slurp, _, err := c.doReq(req)
 	if err != nil {
 		return nil, err
 	}
@@ -90,5 +90,6 @@ func (c *Client) UpdatePlace(pp *PlaceParams) (*Place, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Content-Type", "application/json")
 	return c.doPlaceReq(req)
 }
