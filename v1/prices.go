@@ -242,6 +242,8 @@ func (upf *UpfrontFare) NoCarsAvailable() bool {
 
 var errInvalidSeatCount = errors.New("invalid seatcount, default and maximum value is 2")
 
+const defaultSeatCount = 2
+
 func (esReq *EstimateRequest) validateForUpfrontFare() error {
 	if esReq == nil {
 		return errNilEstimateRequest
@@ -251,6 +253,10 @@ func (esReq *EstimateRequest) validateForUpfrontFare() error {
 	// Default and maximum value is 2.
 	if esReq.SeatCount < 0 || esReq.SeatCount > 2 {
 		return errInvalidSeatCount
+	}
+
+	if esReq.SeatCount == 0 {
+		esReq.SeatCount = defaultSeatCount
 	}
 
 	// UpfrontFares require:
