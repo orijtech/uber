@@ -20,7 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/orijtech/otils"
 )
@@ -98,7 +100,7 @@ type Phone struct {
 
 type CurrencyCode string
 
-type DeliveryResponse struct {
+type Delivery struct {
 	ID      string  `json:"delivery_id"`
 	Fee     float32 `json:"fee"`
 	QuoteID string  `json:"quote_id"`
@@ -196,7 +198,7 @@ func (e *Endpoint) Validate() error {
 	return nil
 }
 
-func (c *Client) RequestDelivery(req *DeliveryRequest) (*DeliveryResponse, error) {
+func (c *Client) RequestDelivery(req *DeliveryRequest) (*Delivery, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -215,7 +217,7 @@ func (c *Client) RequestDelivery(req *DeliveryRequest) (*DeliveryResponse, error
 	if err != nil {
 		return nil, err
 	}
-	dRes := new(DeliveryResponse)
+	dRes := new(Delivery)
 	if err := json.Unmarshal(blob, dRes); err != nil {
 		return nil, err
 	}
@@ -239,4 +241,150 @@ func (c *Client) CancelDelivery(deliveryID string) error {
 	}
 	_, _, err = c.doHTTPReq(httpReq)
 	return err
+}
+
+type DeliveryListRequest struct {
+	Status        Status `json:"status,omitempty"`
+	LimitPerPage  int64  `json:"limit"`
+	MaxPageNumber int64  `json:"max_page,omitempty"`
+	StartOffset   int64  `json:"offset"`
+
+	ThrottleDurationMs int64 `json:"throttle_duration_ms"`
+}
+
+type DeliveryThread struct {
+	Pages  chan *DeliveryPage `json:"-"`
+	Cancel func()
+}
+
+type DeliveryPage struct {
+	Err        error       `json:"error"`
+	PageNumber int64       `json:"page_number,omitempty"`
+	Deliveries []*Delivery `json:"deliveries,omitempty"`
+}
+
+type recvDelivery struct {
+	Count             int64       `json:"count"`
+	NextPageQuery     string      `json:"next_page"`
+	PreviousPageQuery string      `json:"previous_page"`
+	Deliveries        []*Delivery `json:"deliveries"`
+}
+
+type deliveryPager struct {
+	Offset int64  `json:"offset"`
+	Limit  int64  `json:"limit"`
+	Status Status `json:"status"`
+}
+
+const (
+	NoThrottle = -1
+
+	defaultThrottleDurationMs = 150 * time.Millisecond
+)
+
+// ListDeliveries requires authorization with OAuth2.0 with
+// the delivery scope set.
+func (c *Client) ListDeliveries(dReq *DeliveryListRequest) (*DeliveryThread, error) {
+	if dReq == nil {
+		dReq = &DeliveryListRequest{Status: StatusReceiptReady}
+	}
+
+	baseURL := c.legacyV1BaseURL()
+	fullURL := fmt.Sprintf("%s/deliveries", baseURL)
+	qv, err := otils.ToURLValues(&deliveryPager{
+		Limit:  dReq.LimitPerPage,
+		Status: dReq.Status,
+		Offset: dReq.StartOffset,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(qv) > 0 {
+		fullURL = fmt.Sprintf("%s/deliveries?%s", baseURL, qv.Encode())
+	}
+
+	parsedURL, err := url.Parse(fullURL)
+	if err != nil {
+		return nil, err
+	}
+	parsedBaseURL, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	var errsList []string
+	if want, got := parsedBaseURL.Scheme, parsedURL.Scheme; got != want {
+		errsList = append(errsList, fmt.Sprintf("gotScheme=%q wantBaseScheme=%q", got, want))
+	}
+	if want, got := parsedBaseURL.Host, parsedURL.Host; got != want {
+		errsList = append(errsList, fmt.Sprintf("gotHost=%q wantBaseHost=%q", got, want))
+	}
+	if len(errsList) > 0 {
+		return nil, errors.New(strings.Join(errsList, "\n"))
+	}
+
+	maxPage := dReq.MaxPageNumber
+	pageExceeded := func(pageNumber int64) bool {
+		return maxPage > 0 && pageNumber >= maxPage
+	}
+
+	fullDeliveriesBaseURL := fmt.Sprintf("%s/deliveries", baseURL)
+	resChan := make(chan *DeliveryPage)
+	cancelChan, cancelFn := makeCancelParadigm()
+
+	go func() {
+		defer close(resChan)
+
+		pageNumber := int64(0)
+		throttleDurationMs := defaultThrottleDurationMs
+		if dReq.ThrottleDurationMs == NoThrottle {
+			throttleDurationMs = 0
+		} else {
+			throttleDurationMs = time.Duration(dReq.ThrottleDurationMs) * time.Millisecond
+		}
+
+		for {
+			page := &DeliveryPage{PageNumber: pageNumber}
+
+			req, err := http.NewRequest("GET", fullURL, nil)
+			if err != nil {
+				page.Err = err
+				resChan <- page
+				return
+			}
+
+			slurp, _, err := c.doReq(req)
+			if err != nil {
+				page.Err = err
+				resChan <- page
+				return
+			}
+
+			recv := new(recvDelivery)
+			if err := json.Unmarshal(slurp, recv); err != nil {
+				page.Err = err
+				resChan <- page
+				return
+			}
+
+			page.Deliveries = recv.Deliveries
+			resChan <- page
+			pageNumber += 1
+			pageToken := recv.NextPageQuery
+			if pageExceeded(pageNumber) || pageToken == "" || len(recv.Deliveries) == 0 {
+				return
+			}
+
+			fullURL = fmt.Sprintf("%s?%s", fullDeliveriesBaseURL, pageToken)
+
+			select {
+			case <-cancelChan:
+				return
+			case <-time.After(throttleDurationMs):
+			}
+		}
+	}()
+
+	return &DeliveryThread{Cancel: cancelFn, Pages: resChan}, nil
 }

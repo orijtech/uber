@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -203,7 +204,7 @@ func TestRequestDelivery(t *testing.T) {
 
 	tests := [...]struct {
 		req     *uber.DeliveryRequest
-		want    *uber.DeliveryResponse
+		want    *uber.Delivery
 		wantErr bool
 	}{
 		0: {
@@ -287,6 +288,73 @@ func TestRequestDelivery(t *testing.T) {
 		wantBytes := jsonSerialize(tt.want)
 		if !bytes.Equal(gotBytes, wantBytes) {
 			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBytes, wantBytes)
+		}
+	}
+}
+
+func TestListDeliveries(t *testing.T) {
+	t.Skipf("Need to get ListDelivery samples from Uber")
+
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: listDeliveriesRoute}
+	transport := uberOAuth2.TransportWithBase(testOAuth2Token1, backend)
+	client.SetHTTPRoundTripper(transport)
+
+	tests := [...]struct {
+		req         *uber.DeliveryListRequest
+		wantAtLeast int
+		wantErr     bool
+	}{
+		0: {
+			req: &uber.DeliveryListRequest{},
+		},
+		1: {
+			req: nil,
+		},
+		2: {
+			req: &uber.DeliveryListRequest{
+				LimitPerPage:  4,
+				MaxPageNumber: 2,
+				StartOffset:   10,
+			},
+			wantAtLeast: 8,
+		},
+	}
+
+	for i, tt := range tests {
+		dres, err := client.ListDeliveries(tt.req)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: want non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: unexpected err: %v", i, err)
+			continue
+		}
+
+		if dres == nil {
+			t.Errorf("#%d: expecting non-nil delivery response", i)
+			continue
+		}
+
+		itemCount := 0
+		for page := range dres.Pages {
+			if page.Err != nil {
+				t.Errorf("#%d: err: %v", i, page.Err)
+				continue
+			}
+
+			itemCount += len(page.Deliveries)
+		}
+		if itemCount < tt.wantAtLeast {
+			t.Errorf("#%d: got=%d wantAtLeast=%d", i, itemCount, tt.wantAtLeast)
 		}
 	}
 }
@@ -1043,6 +1111,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.deliveryRoundTrip(req)
 	case cancelDeliveryRoute:
 		return trt.cancelDeliveryRoundTrip(req)
+	case listDeliveriesRoute:
+		return trt.listDeliveriesRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -1236,6 +1306,32 @@ func knownDeliveryID(deliveryID string) bool {
 	default:
 		return false
 	}
+}
+
+func deliveryListResponsePath(offset int64) string {
+	return fmt.Sprintf("./testdata/delivery-list-%d.json", offset)
+}
+
+func (trt *tRoundTripper) listDeliveriesRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	splits := strings.Split(req.URL.Path, "/")
+	if len(splits) < 2 || splits[len(splits)-1] != "deliveries" {
+		resp := makeResp("expecting a path of form: /v1/deliveries", http.StatusBadRequest)
+		return resp, nil
+	}
+	query := req.URL.Query()
+	offset := int64(0)
+	if offsetStr := query.Get("offset"); offsetStr != "" {
+		var err error
+		offset, err = strconv.ParseInt(offsetStr, 10, 32)
+		if err != nil {
+			return makeResp(err.Error(), http.StatusBadRequest), nil
+		}
+	}
+	path := deliveryListResponsePath(offset)
+	return responseFromFileContent(path), nil
 }
 
 func (trt *tRoundTripper) cancelDeliveryRoundTrip(req *http.Request) (*http.Response, error) {
@@ -1470,8 +1566,8 @@ func priceEstimateFromFile(path string) []*uber.PriceEstimate {
 	return save.Estimates
 }
 
-func deliveryResponseFromFile(path string) *uber.DeliveryResponse {
-	save := new(uber.DeliveryResponse)
+func deliveryResponseFromFile(path string) *uber.Delivery {
+	save := new(uber.Delivery)
 	if err := readFromFileAndDeserialize(path, save); err != nil {
 		return nil
 	}
@@ -1552,4 +1648,5 @@ const (
 	deliveryRoute        = "delivery"
 	sandboxTesterRoute   = "sandbox-test"
 	cancelDeliveryRoute  = "cancel-delivery"
+	listDeliveriesRoute  = "list-deliveries"
 )

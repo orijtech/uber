@@ -144,8 +144,6 @@ func Example_client_EstimatePrice() {
 			cancelPaging()
 		}
 	}
-// Output:
-// WW
 }
 
 func Example_client_EstimateTime() {
@@ -184,8 +182,6 @@ func Example_client_EstimateTime() {
 			cancelPaging()
 		}
 	}
-// Output:
-// WW
 }
 
 func Example_client_RetrieveMyProfile() {
@@ -456,8 +452,6 @@ func Example_client_ListProducts() {
 	for i, product := range products {
 		fmt.Printf("#%d: ID: %q Product: %#v\n", i, product.ID, product)
 	}
-// Output:
-// WW
 }
 
 func Example_client_ProductByID() {
@@ -472,4 +466,33 @@ func Example_client_ProductByID() {
 	}
 
 	fmt.Printf("The Product information: %#v\n", product)
+}
+
+func Example_client_ListDeliveries() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	delivRes, err := client.ListDeliveries(&uber.DeliveryListRequest{
+		Status:      uber.StatusCompleted,
+		StartOffset: 20,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	itemCount := uint64(0)
+	for page := range delivRes.Pages {
+		if page.Err != nil {
+			fmt.Printf("Page #%d err: %v", page.PageNumber, page.Err)
+		}
+		for i, delivery := range page.Deliveries {
+			fmt.Printf("\t(%d): %#v\n", i, delivery)
+			itemCount += 1
+		}
+		if itemCount >= 10 {
+			delivRes.Cancel()
+		}
+	}
 }

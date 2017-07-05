@@ -177,6 +177,10 @@ const (
 	// including pickup, destination and real-time
 	// location for all of your future rides.
 	ScopeAllTrips = "all_trips"
+
+	// ScopeDelivery is a privileged scope that gives
+	// access to the authenticated user's deliveries.
+	ScopeDelivery = "delivery"
 )
 
 func AuthorizeByEnvApp(scopes ...string) (*oauth2.Token, error) {

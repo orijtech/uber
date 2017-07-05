@@ -47,7 +47,7 @@ func authorize() {
 	scopes := []string{
 		oauth2.ScopeProfile, oauth2.ScopeRequest,
 		oauth2.ScopeHistory, oauth2.ScopePlaces,
-		oauth2.ScopeRequestReceipt,
+		oauth2.ScopeRequestReceipt, oauth2.ScopeDelivery,
 	}
 
 	token, err := oauth2.AuthorizeByEnvApp(scopes...)

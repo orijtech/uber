@@ -80,6 +80,22 @@ func (c *Client) baseURL() string {
 	}
 }
 
+// Some endpoints require us to hit /v1 instead of /v1.2 as in Client.baseURL.
+// These endpoints include:
+// + ListDeliveries --> /v1/deliveries at least as of "Tue  4 Jul 2017 23:17:14 MDT"
+func (c *Client) legacyV1BaseURL() string {
+	// Setting the baseURLs in here to ensure that no-one mistakenly
+	// directly invokes baseURL or sandboxBaseURL.
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.sandboxed {
+		return "https://sandbox-api.uber.com/v1"
+	} else { // Invoking the production endpoint
+		return "https://api.uber.com/v1"
+	}
+}
+
 func NewClient(tokens ...string) (*Client, error) {
 	if token := otils.FirstNonEmptyString(tokens...); token != "" {
 		return &Client{token: token}, nil
