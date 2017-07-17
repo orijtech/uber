@@ -1,0 +1,35 @@
+{
+  "product_id": "17cb78a7-b672-4d34-a288-a6c6e44d5315",
+  "request_id": "a1111c8c-c720-46c3-8534-2fcdd730040d",
+  "status": "accepted",
+  "surge_multiplier": 1.0,
+  "shared": true,
+  "driver": {
+    "phone_number": "(415)555-1212",
+    "sms_number": "(415)555-1212",
+    "rating": 5,
+    "picture_url": "https://d1w2poirtb3as9.cloudfront.net/img.jpeg",
+    "name": "Bob"
+  },
+  "vehicle": {
+    "make": "Bugatti",
+    "model": "Veyron",
+    "license_plate": "I<3Uber",
+    "picture_url": "https://d1w2poirtb3as9.cloudfront.net/car.jpeg"
+  },
+  "location": {
+    "latitude": 37.3382129093,
+    "longitude": -121.8863287568,
+    "bearing": 328
+  },
+  "pickup": {
+    "latitude": 37.3303463,
+    "longitude": -121.8890484,
+    "eta": 5
+  },
+  "destination": {
+    "latitude": 37.6213129,
+    "longitude": -122.3789554,
+    "eta": 19
+  }
+}

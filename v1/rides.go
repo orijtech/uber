@@ -158,6 +158,7 @@ func (c *Client) RequestRide(rreq *RideRequest) (*Ride, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Content-Type", "application/json")
 	blob, _, err = c.doHTTPReq(req)
 	if err != nil {
 		return nil, err
@@ -190,22 +191,26 @@ func blankPlaceOrCoords(place PlaceName, lat, lon float64) bool {
 }
 
 type Ride struct {
-	RequestID string `json:"request_id"`
-	ProductID string `json:"product_id"`
+	RequestID string `json:"request_id,omitempty"`
+	ProductID string `json:"product_id,omitempty"`
 
 	// Status indicates the state of the ride request.
-	Status Status `json:"status"`
+	Status Status `json:"status,omitempty"`
+	Shared bool   `json:"shared,omitempty"`
 
 	Vehicle  *Vehicle  `json:"vehicle,omitempty"`
-	Driver   *Driver   `json:"driver"`
-	Location *Location `json:"location"`
+	Driver   *Driver   `json:"driver,omitempty"`
+	Location *Location `json:"location,omitempty"`
+
+	Pickup      *Location `json:"pickup,omitempty"`
+	Destination *Location `json:"destination,omitempty"`
 
 	// ETAMinutes is the expected time of arrival in minutes.
-	ETAMinutes int `json:"eta"`
+	ETAMinutes int `json:"eta,omitempty"`
 
 	// The surge pricing multiplier used to calculate the increased price of a request.
 	// A surge multiplier of 1.0 means surge pricing is not in effect.
-	SurgeMultiplier float32 `json:"surge_multiplier"`
+	SurgeMultiplier float32 `json:"surge_multiplier,omitempty"`
 }
 
 func (r *Ride) SurgeInEffect() bool {
@@ -244,4 +249,6 @@ type Location struct {
 	State            string `json:"state,omitempty"`
 	PostalCode       string `json:"postal_code,omitempty"`
 	Country          string `json:"country,omitempty"`
+
+	ETAMinutes float32 `json:"eta,omitempty"`
 }

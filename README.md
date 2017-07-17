@@ -5,6 +5,13 @@ Uber API client in Go
 To use client v1, you'll need to set
 + `UBER_TOKEN_KEY`
 
+## CLI installation
+```go
+$ go get -u -v github.com/orijtech/uber/cmd/uber
+$ uber --order
+```
+
+## SDK usage
 Sample usage: You can see file 
 [example_test.go](./example_test.go)
 
