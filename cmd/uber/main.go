@@ -47,6 +47,45 @@ type initCmd struct {
 
 var _ command.Cmd = (*initCmd)(nil)
 
+type paymentsCmd struct {
+}
+
+var _ command.Cmd = (*paymentsCmd)(nil)
+
+func (p *paymentsCmd) Flags(fs *flag.FlagSet) *flag.FlagSet {
+	return fs
+}
+
+func (p *paymentsCmd) Run(args []string, defaults map[string]*flag.Flag) {
+	credsPath := credsMustExist()
+	client, err := uberClientFromFile(credsPath)
+	exitIfErr(err)
+
+	listings, err := client.ListPaymentMethods()
+	exitIfErr(err)
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetRowLine(true)
+
+	table.SetHeader([]string{
+		"Method", "ID", "Description", "LastUsed",
+	})
+
+	for _, method := range listings.Methods {
+		lastUsedTok := ""
+		if method.ID == listings.LastUsedID {
+			lastUsedTok = "✔️"
+		}
+		table.Append([]string{
+			fmt.Sprintf("%s", method.PaymentMethod),
+			method.ID,
+			method.Description,
+			lastUsedTok,
+		})
+	}
+	table.Render()
+}
+
 func (a *initCmd) Flags(fs *flag.FlagSet) *flag.FlagSet {
 	return fs
 }
@@ -381,6 +420,7 @@ func main() {
 	command.On("init", "authorizes and initializes your Uber account", &initCmd{}, nil)
 	command.On("order", "order your uber", &orderCmd{}, nil)
 	command.On("history", "view your trip history", &historyCmd{}, nil)
+	command.On("payments", "list your payments methods", &paymentsCmd{}, nil)
 
 	command.ParseAndRun()
 }
