@@ -19,13 +19,53 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/orijtech/otils"
 )
 
 type Payment struct {
-	ID string `json:"payment_method_id"`
+	// ID is the unique identifier of the payment item.
+	// If the payment is related to a trip, it is the same as TripID.
+	ID       string `json:"payment_id,omitempty"`
+	MethodID string `json:"payment_method_id,omitempty"`
 
-	Description   string        `json:"description"`
-	PaymentMethod PaymentMethod `json:"type"`
+	Category PaymentCategory `json:"category,omitempty"`
+
+	Description   string        `json:"description,omitempty"`
+	PaymentMethod PaymentMethod `json:"type,omitempty"`
+
+	// DriverID is the unique identifier of the
+	// driver who received or made the payment.
+	DriverID string `json:"driver_id,omitempty"`
+
+	// PartnerID is the unique identifier of the
+	// Fleet Manager for the driver.
+	PartnerID string `json:"partner_id,omitempty"`
+
+	// TripID is the unique identifier of the trip associated
+	// with the payment. It is only present for
+	// PaymentCategory `Fare` otherwise it is null.
+	TripID otils.NullableString `json:"trip_id,omitempty"`
+
+	EventTime otils.NullableFloat64 `json:"event_time,omitempty"`
+
+	// CashCollected is the amount collected in cash by the driver.
+	// It is only set for Uber products that are enabled for cash payments.
+	CashCollected otils.NullableFloat64 `json:"cash_collected,omitempty"`
+
+	// Amount is the net payout to the driver. It is positive for
+	// payments to the account, negative for charges to the account.
+	Amount otils.NullableFloat64 `json:"amount,omitempty"`
+
+	// CurrencyCode is the ISO 4217 currency code of the payment.
+	CurrencyCode otils.NullableString `json:"currency_code,omitempty"`
+
+	// Breakdown is the breakdown of the fare.
+	Breakdown *FareBreakdown `json:"breakdown,omitempty"`
+
+	// RiderFees details the fees paid to the driver by the rider
+	// These fees are not reflected in the fare.
+	RiderFees *ServiceFee `json:"rider_fees,omitempty"`
 }
 
 type PaymentMethod uint

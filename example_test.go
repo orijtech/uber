@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/orijtech/uber/v1"
 )
@@ -508,4 +509,30 @@ func Example_client_DriverProfile() {
 	}
 	fmt.Printf("Rating: %.2f\nFirst Name: %s\nLast Name: %s\n",
 		prof.Rating, prof.FirstName, prof.LastName)
+}
+
+func Example_client_ListDriverPayments() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	aWeekAgo := time.Now().Add(-1 * time.Hour * 7 * 24)
+	yesterday := time.Now().Add(-1 * time.Hour * 24)
+	payments, err := client.ListDriverPayments(&uber.DriverPaymentsQuery{
+		StartDate: &aWeekAgo,
+		EndDate:   &yesterday,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	for page := range payments.Pages {
+		if page.Err != nil {
+			fmt.Printf("%d err: %v\n", page.PageNumber, page.Err)
+			continue
+		}
+		for i, payment := range page.Payments {
+			fmt.Printf("\t%d:: %#v\n", i, payment)
+		}
+		fmt.Println()
+	}
 }

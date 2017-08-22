@@ -67,16 +67,23 @@ func (c *Client) Sandboxed() bool {
 	return c.sandboxed
 }
 
-func (c *Client) baseURL() string {
+const defaultVersion = "v1.2"
+
+func (c *Client) baseURL(versions ...string) string {
 	// Setting the baseURLs in here to ensure that no-one mistakenly
 	// directly invokes baseURL or sandboxBaseURL.
 	c.RLock()
 	defer c.RUnlock()
 
+	version := otils.FirstNonEmptyString(versions...)
+	if version == "" {
+		version = defaultVersion
+	}
+
 	if c.sandboxed {
-		return "https://sandbox-api.uber.com/v1.2"
+		return "https://sandbox-api.uber.com/" + version
 	} else { // Invoking the production endpoint
-		return "https://api.uber.com/v1.2"
+		return "https://api.uber.com/" + version
 	}
 }
 

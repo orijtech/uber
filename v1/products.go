@@ -164,6 +164,8 @@ type ServiceFee struct {
 	Name string `json:"name,omitempty"`
 
 	Fee otils.NullableFloat64 `json:"fee,omitempty"`
+
+	SplitFare otils.NullableFloat64 `json:"split_fare,omitempty"`
 }
 
 type Unit otils.NullableString

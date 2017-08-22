@@ -1,0 +1,83 @@
+{
+  "count": 1200,
+  "limit": 4,
+  "payments": [
+    {
+      "payment_id": "1638dd86-a690-4903-8cae-d3b0b1566b91",
+      "category": "fare",
+      "event_time": 1501862352,
+      "trip_id": "1638dd86-a690-4903-8cae-d3b0b1566b91",
+      "cash_collected": 0,
+      "amount": 0.16,
+      "driver_id": "8LvWuRAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aZpXIQah--U77Eh7LEBiksj2rahB==",
+      "breakdown": {
+        "other": 7.76,
+        "toll": 1,
+        "service_fee": 1.04
+      },
+      "rider_fees": {
+        "split_fare": 3.45
+      },
+      "partner_id": "8LvWuRAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aZpXIQah--U77Eh7LEBiksj2rahB==",
+      "currency_code": "CAD"
+    },
+    {
+      "payment_id": "b98cc052-ff36-4fb0-8b59-b7f104f0b412",
+      "category": "fare",
+      "event_time": 1502842852,
+      "trip_id": "b98cc052-ff36-4fb0-8b59-b7f104f0b412",
+      "cash_collected": 0.89,
+      "amount": 13.12,
+      "driver_id": "7PvWuMAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aQpXIYih--U83Eh7LEBiksj2xyhB==",
+      "breakdown": {
+        "other": 9.16,
+        "toll": 1,
+        "service_fee": 2.11
+      },
+      "rider_fees": {
+        "split_fare": 3.37
+      },
+      "partner_id": "8LvWuRAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aZpXIQah--U77Eh7LEBiksj2rahB==",
+      "currency_code": "CTH"
+    },
+    {
+      "payment_id": "8e367a25-7fe2-4430-953e-54ad2dd94f3e",
+      "category": "fare",
+      "event_time": 1502862461,
+      "trip_id": "8e367a25-7fe2-4430-953e-54ad2dd94f3e",
+      "cash_collected": 10,
+      "amount": 1.26,
+      "driver_id": "8LvWuRAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aZpXIQah--U77Eh7LEBiksj2rahB==",
+      "breakdown": {
+        "other": 7.76,
+        "toll": 1,
+        "service_fee": 1.04
+      },
+      "rider_fees": {
+        "split_fare": 3.45
+      },
+      "partner_id": "8LvWuRAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aZpXIQah--U77Eh7LEBiksj2rahB==",
+      "currency_code": "USD"
+    },
+    {
+      "payment_id": "62bcf820-cad0-451d-b991-86b75dc7f1e1",
+      "category": "fare",
+      "event_time": 1502865911,
+      "trip_id": "62bcf820-cad0-451d-b991-86b75dc7f1e1",
+      "cash_collected": 10.89,
+      "amount": 3.8,
+      "driver_id": "7PvWuMAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aQpXIYih--U83Eh7LEBiksj2xyhB==",
+      "breakdown": {
+        "other": 4.03,
+        "toll": 1,
+        "service_fee": 25.16
+      },
+      "rider_fees": {
+        "split_fare": 2.28
+      },
+      "partner_id": "8LvWuRAq2511gmr8EMkovekFNa2848lyMaQevIto-aXmnK9oKNRtfTxYLgPq9OSt8EzAu5pDB7XiaQIrcp-zXgOA5EyK4h00U6D1o7aZpXIQah--U77Eh7LEBiksj2rahB==",
+      "currency_code": "USD"
+    }
+  ],
+  "offset": 6
+}

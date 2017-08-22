@@ -207,10 +207,19 @@ type FareEstimate struct {
 }
 
 type FareBreakdown struct {
-	Low           otils.NullableFloat64 `json:"low_amount"`
-	High          otils.NullableFloat64 `json:"high_amount"`
-	DisplayAmount otils.NullableString  `json:"display_amount"`
-	DisplayName   otils.NullableString  `json:"display_name"`
+	Low           otils.NullableFloat64 `json:"low_amount,omitempty"`
+	High          otils.NullableFloat64 `json:"high_amount,omitempty"`
+	DisplayAmount otils.NullableString  `json:"display_amount,omitempty"`
+	DisplayName   otils.NullableString  `json:"display_name,omitempty"`
+
+	// Toll is the amount for tolls included in the fare.
+	Toll otils.NullableFloat64 `json:"toll,omitempty"`
+
+	// ServiceFee is the the fee collected by Uber for this fare.
+	ServiceFee otils.NullableFloat64 `json:"service_fee,omitempty"`
+
+	// Remainder is the remainder of the fare
+	Remainder otils.NullableFloat64 `json:"other,omitempty"`
 }
 
 type Fare struct {

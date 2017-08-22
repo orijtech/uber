@@ -292,6 +292,80 @@ func TestRequestDelivery(t *testing.T) {
 	}
 }
 
+func TestListDriverPayments(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: listDriverPaymentsRoute}
+	transport := uberOAuth2.TransportWithBase(testOAuth2Token1, backend)
+	client.SetHTTPRoundTripper(transport)
+
+	tests := [...]struct {
+		req           *uber.DriverPaymentsQuery
+		wantPageCount int
+		wantItemCount int
+		wantErr       bool
+	}{
+		0: {
+			req:           nil, // No page limit, pagination all of them
+			wantPageCount: 4,
+			wantItemCount: 10,
+		},
+		1: {
+			req:           &uber.DriverPaymentsQuery{LimitPerPage: 2, MaxPageNumber: 1},
+			wantPageCount: 1,
+			wantItemCount: 2,
+		},
+		2: {
+			req:           &uber.DriverPaymentsQuery{LimitPerPage: 2, MaxPageNumber: 3},
+			wantPageCount: 3,
+			wantItemCount: 6,
+		},
+	}
+
+	for i, tt := range tests {
+		if tt.req != nil {
+			tt.req.Throttle = uber.NoThrottle
+		}
+		dres, err := client.ListDriverPayments(tt.req)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: want non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: unexpected err: %v", i, err)
+			continue
+		}
+
+		if dres == nil {
+			t.Errorf("#%d: expecting non-nil delivery response", i)
+			continue
+		}
+
+		itemCount := 0
+		pageCount := 0
+		for page := range dres.Pages {
+			if page.Err != nil {
+				t.Errorf("#%d: err: %v", i, page.Err)
+				continue
+			}
+			pageCount += 1
+			itemCount += len(page.Payments)
+		}
+		if g, w := itemCount, tt.wantItemCount; g != w {
+			t.Errorf("#%d: itemCount:: got=%d want=%d", i, g, w)
+		}
+		if g, w := pageCount, tt.wantPageCount; g != w {
+			t.Errorf("#%d: pageCount:: got=%d want=%d", i, g, w)
+		}
+	}
+}
+
 func TestListDeliveries(t *testing.T) {
 	t.Skipf("Need to get ListDelivery samples from Uber")
 
@@ -1176,6 +1250,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.cancelDeliveryRoundTrip(req)
 	case listDeliveriesRoute:
 		return trt.listDeliveriesRoundTrip(req)
+	case listDriverPaymentsRoute:
+		return trt.listDriverPaymentsRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -1274,7 +1350,7 @@ func (trt *tRoundTripper) retrieveDriverProfileRoundTrip(req *http.Request) (*ht
 		return badAuthResp, err
 	}
 	want := "/v1/partners/me"
-	if got, want := req.URL.Path, want; strings.HasSuffix(got, want) {
+	if got, want := req.URL.Path, want; !strings.HasSuffix(got, want) {
 		return makeResp(fmt.Sprintf("got=%q wantSuffix=%q", got, want), http.StatusBadRequest), nil
 	}
 	resp := responseFromFileContent(driverProfileTokenPath(token))
@@ -1386,6 +1462,33 @@ func knownDeliveryID(deliveryID string) bool {
 
 func deliveryListResponsePath(offset int64) string {
 	return fmt.Sprintf("./testdata/delivery-list-%d.json", offset)
+}
+
+func driverPaymentsListResponsePath(offset int64) string {
+	return fmt.Sprintf("./testdata/driver_payments_%d.json", offset)
+}
+
+func (trt *tRoundTripper) listDriverPaymentsRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	got := req.URL.Path
+	wantSuffix := "/v1/partners/payments"
+	if !strings.HasSuffix(got, wantSuffix) {
+		resp := makeResp(fmt.Sprintf("got=%q wantSuffix=%q", got, wantSuffix), http.StatusBadRequest)
+		return resp, nil
+	}
+	query := req.URL.Query()
+	offset := int64(0)
+	if offsetStr := query.Get("offset"); offsetStr != "" {
+		var err error
+		offset, err = strconv.ParseInt(offsetStr, 10, 32)
+		if err != nil {
+			return makeResp(err.Error(), http.StatusBadRequest), nil
+		}
+	}
+	path := driverPaymentsListResponsePath(offset)
+	return responseFromFileContent(path), nil
 }
 
 func (trt *tRoundTripper) listDeliveriesRoundTrip(req *http.Request) (*http.Response, error) {
@@ -1598,19 +1701,13 @@ func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.R
 }
 
 func responseFromFileContent(path string) *http.Response {
-	data, err := ioutil.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return makeResp(err.Error(), http.StatusInternalServerError)
 	}
 
-	prc, pwc := io.Pipe()
-	go func() {
-		defer pwc.Close()
-		pwc.Write(data)
-	}()
-
 	resp := makeResp("200 OK", http.StatusOK)
-	resp.Body = prc
+	resp.Body = f
 	return resp
 }
 
@@ -1726,4 +1823,5 @@ const (
 	sandboxTesterRoute         = "sandbox-test"
 	cancelDeliveryRoute        = "cancel-delivery"
 	listDeliveriesRoute        = "list-deliveries"
+	listDriverPaymentsRoute    = "list-driver-payments"
 )

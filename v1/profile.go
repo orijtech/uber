@@ -58,8 +58,8 @@ func (c *Client) RetrieveMyProfile() (*Profile, error) {
 	return c.retrieveProfile("/me")
 }
 
-func (c *Client) retrieveProfile(path string) (*Profile, error) {
-	fullURL := fmt.Sprintf("%s%s", c.baseURL(), path)
+func (c *Client) retrieveProfile(path string, versions ...string) (*Profile, error) {
+	fullURL := fmt.Sprintf("%s%s", c.baseURL(versions...), path)
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err
