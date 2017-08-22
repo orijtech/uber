@@ -496,3 +496,16 @@ func Example_client_ListDeliveries() {
 		}
 	}
 }
+
+func Example_client_DriverProfile() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	prof, err := client.DriverProfile()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Rating: %.2f\nFirst Name: %s\nLast Name: %s\n",
+		prof.Rating, prof.FirstName, prof.LastName)
+}

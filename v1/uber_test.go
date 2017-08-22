@@ -565,6 +565,54 @@ func TestEstimateTime(t *testing.T) {
 	}
 }
 
+func TestDriverProfile(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	testingRoundTripper := &tRoundTripper{route: retrieveDriverProfileRoute}
+	client.SetHTTPRoundTripper(testingRoundTripper)
+
+	invalidToken := fmt.Sprintf("%v", time.Now().Unix())
+
+	tests := [...]struct {
+		wantErr     bool
+		bearerToken string
+		want        *uber.Profile
+	}{
+		0: {
+			bearerToken: testToken1,
+			want:        driverProfileFromFileByToken(testToken1),
+		},
+		1: {
+			bearerToken: invalidToken,
+			wantErr:     true,
+		},
+	}
+
+	for i, tt := range tests {
+		client.SetBearerToken(tt.bearerToken)
+		prof, err := client.DriverProfile()
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d expecting a non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: err: %v", i, err)
+			continue
+		}
+
+		gotBlob, wantBlob := jsonSerialize(prof), jsonSerialize(tt.want)
+		if !bytes.Equal(gotBlob, wantBlob) {
+			t.Errorf("#%d:\ngot:  %s\nwant: %s", i, gotBlob, wantBlob)
+		}
+	}
+}
+
 func TestRetrieveMyProfile(t *testing.T) {
 	client, err := uber.NewClient(testToken1)
 	if err != nil {
@@ -1024,6 +1072,10 @@ func profileTokenPath(tokenSuffix string) string {
 	return fmt.Sprintf("./testdata/profile-%s.json", tokenSuffix)
 }
 
+func driverProfileTokenPath(tokenSuffix string) string {
+	return fmt.Sprintf("./testdata/driverProfile-%s.json", tokenSuffix)
+}
+
 func promoCodePath(suffix string) string {
 	return fmt.Sprintf("./testdata/promo-code-%s.json", suffix)
 }
@@ -1039,6 +1091,15 @@ func promoCodeFromFileByToken(promoCodeSuffix string) *uber.PromoCode {
 
 func profileFromFileByToken(tokenSuffix string) *uber.Profile {
 	path := profileTokenPath(tokenSuffix)
+	prof := new(uber.Profile)
+	if err := readFromFileAndDeserialize(path, prof); err != nil {
+		return nil
+	}
+	return prof
+}
+
+func driverProfileFromFileByToken(tokenSuffix string) *uber.Profile {
+	path := driverProfileTokenPath(tokenSuffix)
 	prof := new(uber.Profile)
 	if err := readFromFileAndDeserialize(path, prof); err != nil {
 		return nil
@@ -1093,6 +1154,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.estimateTimeRoundTrip(req)
 	case retrieveProfileRoute:
 		return trt.retrieveProfileRoundTrip(req)
+	case retrieveDriverProfileRoute:
+		return trt.retrieveDriverProfileRoundTrip(req)
 	case applyPromoCodeRoute:
 		return trt.applyPromoCodeRoundTrip(req)
 	case requestRideRoute:
@@ -1203,6 +1266,19 @@ func (trt *tRoundTripper) applyPromoCodeRoundTrip(req *http.Request) (*http.Resp
 	resp := responseFromFileContent(promoCodePath(preq.CodeToApply))
 	return resp, nil
 
+}
+
+func (trt *tRoundTripper) retrieveDriverProfileRoundTrip(req *http.Request) (*http.Response, error) {
+	badAuthResp, token, err := prescreenAuthAndMethod(req, "GET")
+	if badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	want := "/v1/partners/me"
+	if got, want := req.URL.Path, want; strings.HasSuffix(got, want) {
+		return makeResp(fmt.Sprintf("got=%q wantSuffix=%q", got, want), http.StatusBadRequest), nil
+	}
+	resp := responseFromFileContent(driverProfileTokenPath(token))
+	return resp, nil
 }
 
 func (trt *tRoundTripper) retrieveProfileRoundTrip(req *http.Request) (*http.Response, error) {
@@ -1632,21 +1708,22 @@ func unauthorizedToken(token string) bool {
 }
 
 const (
-	listPaymentMethods   = "list-payment-methods"
-	listProducts         = "list-products"
-	productByID          = "product-by-id"
-	estimatePriceRoute   = "estimate-prices"
-	estimateTimeRoute    = "estimate-times"
-	retrieveProfileRoute = "retrieve-profile"
-	applyPromoCodeRoute  = "apply-promo-code"
-	requestRideRoute     = "request-ride"
-	getMapRoute          = "get-map"
-	requestReceiptRoute  = "request-receipt"
-	getPlacesRoute       = "get-places"
-	updatePlacesRoute    = "update-places"
-	upfrontFareRoute     = "upfront-fare"
-	deliveryRoute        = "delivery"
-	sandboxTesterRoute   = "sandbox-test"
-	cancelDeliveryRoute  = "cancel-delivery"
-	listDeliveriesRoute  = "list-deliveries"
+	listPaymentMethods         = "list-payment-methods"
+	listProducts               = "list-products"
+	productByID                = "product-by-id"
+	estimatePriceRoute         = "estimate-prices"
+	estimateTimeRoute          = "estimate-times"
+	retrieveProfileRoute       = "retrieve-profile"
+	retrieveDriverProfileRoute = "retrieve-driver-profile"
+	applyPromoCodeRoute        = "apply-promo-code"
+	requestRideRoute           = "request-ride"
+	getMapRoute                = "get-map"
+	requestReceiptRoute        = "request-receipt"
+	getPlacesRoute             = "get-places"
+	updatePlacesRoute          = "update-places"
+	upfrontFareRoute           = "upfront-fare"
+	deliveryRoute              = "delivery"
+	sandboxTesterRoute         = "sandbox-test"
+	cancelDeliveryRoute        = "cancel-delivery"
+	listDeliveriesRoute        = "list-deliveries"
 )

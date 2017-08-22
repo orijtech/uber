@@ -181,6 +181,21 @@ const (
 	// ScopeDelivery is a privileged scope that gives
 	// access to the authenticated user's deliveries.
 	ScopeDelivery = "delivery"
+
+	// ScopePartnerAccounts is a privileged scope that
+	// means that you've authorized Uber to share your
+	// account information with this partner.
+	ScopePartnerAccounts = "partner.accounts"
+
+	// ScopePartnerPayments is a privileged scope that
+	// authorizes Uber to share your payments information
+	// with this partner.
+	ScopePartnerPayments = "partner.payments"
+
+	// ScopePartnerTrips is a privileged scope that
+	// authorizes Uber to share your trip times, fares,
+	// distances and cities with this partner.
+	ScopePartnerTrips = "partner.trips"
 )
 
 func AuthorizeByEnvApp(scopes ...string) (*oauth2.Token, error) {

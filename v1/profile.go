@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/orijtech/otils"
 )
 
 type Profile struct {
@@ -44,10 +46,20 @@ type Profile struct {
 	PromoCode string `json:"promo_code,omitempty"`
 
 	ID string `json:"uuid,omitempty"`
+
+	Rating otils.NullableFloat64 `json:"rating,omitempty"`
+
+	ActivationStatus ActivationStatus `json:"activation_status,omitempty"`
+
+	DriverID string `json:"driver_id,omitempty"`
 }
 
 func (c *Client) RetrieveMyProfile() (*Profile, error) {
-	fullURL := fmt.Sprintf("%s/me", c.baseURL())
+	return c.retrieveProfile("/me")
+}
+
+func (c *Client) retrieveProfile(path string) (*Profile, error) {
+	fullURL := fmt.Sprintf("%s%s", c.baseURL(), path)
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return nil, err

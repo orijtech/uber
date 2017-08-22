@@ -112,6 +112,11 @@ func (a *initCmd) Run(args []string, defaults map[string]*flag.Flag) {
 		oauth2.ScopeProfile, oauth2.ScopeRequest,
 		oauth2.ScopeHistory, oauth2.ScopePlaces,
 		oauth2.ScopeRequestReceipt, oauth2.ScopeDelivery,
+
+		// To allow for driver information retrieval
+		oauth2.ScopePartnerAccounts,
+		oauth2.ScopePartnerPayments,
+		oauth2.ScopePartnerTrips,
 	}
 
 	token, err := oauth2.AuthorizeByEnvApp(scopes...)
