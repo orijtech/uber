@@ -59,20 +59,22 @@ type Item struct {
 }
 
 type Endpoint struct {
-	Location *Location `json:"location"`
+	Location *Location `json:"location,omitempty"`
 	Contact  *Contact  `json:"contact,omitempty"`
 
 	// Special instructions for the endpoint. This field
 	// is optional and it is limited to 256 characters.
 	SpecialInstructions otils.NullableString `json:"special_instructions,omitempty"`
 
-	SignatureRequired bool `json:"signature_required"`
+	SignatureRequired bool `json:"signature_required,omitempty"`
 
 	// Indicates if the delivery includes alcohol. This
 	// feature is only available to whitelisted businesses.
-	IncludesAlcohol bool `json:"includes_alcohol"`
+	IncludesAlcohol bool `json:"includes_alcohol,omitempty"`
 
-	ETAMinutes int `json:"eta"`
+	ETAMinutes int `json:"eta,omitempty"`
+
+	TimestampUnix int64 `json:"timestamp,omitempty"`
 }
 
 type Contact struct {

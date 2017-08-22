@@ -42,11 +42,30 @@ type Trip struct {
 
 	ProductID string `json:"product_id,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
+	TripID    string `json:"trip_id,omitempty"`
+	DriverID  string `json:"driver_id,omitempty"`
 
 	Unit string `json:"distance_unit,omitempty"`
 
+	Duration         otils.NullableFloat64 `json:"duration,omitempty"`
 	DurationEstimate otils.NullableFloat64 `json:"duration_estimate,omitempty"`
+
+	Distance         otils.NullableFloat64 `json:"distance,omitempty"`
 	DistanceEstimate otils.NullableFloat64 `json:"distance_estimate,omitempty"`
+
+	VehicleID otils.NullableString `json:"vehicle_id,omitempty"`
+
+	SurgeMultiplier otils.NullableFloat64 `json:"surge_multiplier,omitempty"`
+	Fare            otils.NullableFloat64 `json:"fare,omitempty"`
+	Dropoff         *Endpoint             `json:"dropoff,omitempty"`
+	Pickup          *Endpoint             `json:"pickup,omitempty"`
+	StatusChanges   []*StatusChange       `json:"status_changes,omitempty"`
+	CurrencyCode    CurrencyCode          `json:"currency_code,omitempty"`
+}
+
+type StatusChange struct {
+	Status        Status `json:"status,omitempty"`
+	TimestampUnix int64  `json:"timestamp,omitempty"`
 }
 
 type Place struct {

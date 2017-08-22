@@ -518,7 +518,7 @@ func Example_client_ListDriverPayments() {
 	}
 	aWeekAgo := time.Now().Add(-1 * time.Hour * 7 * 24)
 	yesterday := time.Now().Add(-1 * time.Hour * 24)
-	payments, err := client.ListDriverPayments(&uber.DriverPaymentsQuery{
+	payments, err := client.ListDriverPayments(&uber.DriverInfoQuery{
 		StartDate: &aWeekAgo,
 		EndDate:   &yesterday,
 	})
@@ -532,6 +532,34 @@ func Example_client_ListDriverPayments() {
 		}
 		for i, payment := range page.Payments {
 			fmt.Printf("\t%d:: %#v\n", i, payment)
+		}
+		fmt.Println()
+	}
+}
+
+func Example_client_ListDriverTrips() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	aWeekAgo := time.Now().Add(-1 * time.Hour * 7 * 24)
+	yesterday := time.Now().Add(-1 * time.Hour * 24)
+	trips, err := client.ListDriverTrips(&uber.DriverInfoQuery{
+		StartDate:     &aWeekAgo,
+		EndDate:       &yesterday,
+		MaxPageNumber: 2,
+		Offset:        4,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	for page := range trips.Pages {
+		if page.Err != nil {
+			fmt.Printf("%d err: %v\n", page.PageNumber, page.Err)
+			continue
+		}
+		for i, trip := range page.Trips {
+			fmt.Printf("\t%d:: DriverID: %q\nFare: %.2f\n%#v\n", i, trip.DriverID, trip.Fare, trip)
 		}
 		fmt.Println()
 	}

@@ -303,7 +303,7 @@ func TestListDriverPayments(t *testing.T) {
 	client.SetHTTPRoundTripper(transport)
 
 	tests := [...]struct {
-		req           *uber.DriverPaymentsQuery
+		req           *uber.DriverInfoQuery
 		wantPageCount int
 		wantItemCount int
 		wantErr       bool
@@ -314,12 +314,12 @@ func TestListDriverPayments(t *testing.T) {
 			wantItemCount: 10,
 		},
 		1: {
-			req:           &uber.DriverPaymentsQuery{LimitPerPage: 2, MaxPageNumber: 1},
+			req:           &uber.DriverInfoQuery{LimitPerPage: 2, MaxPageNumber: 1},
 			wantPageCount: 1,
 			wantItemCount: 2,
 		},
 		2: {
-			req:           &uber.DriverPaymentsQuery{LimitPerPage: 2, MaxPageNumber: 3},
+			req:           &uber.DriverInfoQuery{LimitPerPage: 2, MaxPageNumber: 3},
 			wantPageCount: 3,
 			wantItemCount: 6,
 		},
@@ -356,6 +356,80 @@ func TestListDriverPayments(t *testing.T) {
 			}
 			pageCount += 1
 			itemCount += len(page.Payments)
+		}
+		if g, w := itemCount, tt.wantItemCount; g != w {
+			t.Errorf("#%d: itemCount:: got=%d want=%d", i, g, w)
+		}
+		if g, w := pageCount, tt.wantPageCount; g != w {
+			t.Errorf("#%d: pageCount:: got=%d want=%d", i, g, w)
+		}
+	}
+}
+
+func TestListDriverTrips(t *testing.T) {
+	client, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	backend := &tRoundTripper{route: listDriverTripsRoute}
+	transport := uberOAuth2.TransportWithBase(testOAuth2Token1, backend)
+	client.SetHTTPRoundTripper(transport)
+
+	tests := [...]struct {
+		req           *uber.DriverInfoQuery
+		wantPageCount int
+		wantItemCount int
+		wantErr       bool
+	}{
+		0: {
+			req:           nil, // No page limit, pagination all of them
+			wantPageCount: 4,
+			wantItemCount: 10,
+		},
+		1: {
+			req:           &uber.DriverInfoQuery{LimitPerPage: 2, MaxPageNumber: 1},
+			wantPageCount: 1,
+			wantItemCount: 2,
+		},
+		2: {
+			req:           &uber.DriverInfoQuery{LimitPerPage: 2, MaxPageNumber: 3},
+			wantPageCount: 3,
+			wantItemCount: 6,
+		},
+	}
+
+	for i, tt := range tests {
+		if tt.req != nil {
+			tt.req.Throttle = uber.NoThrottle
+		}
+		dres, err := client.ListDriverTrips(tt.req)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: want non-nil error", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: unexpected err: %v", i, err)
+			continue
+		}
+
+		if dres == nil {
+			t.Errorf("#%d: expecting non-nil delivery response", i)
+			continue
+		}
+
+		itemCount := 0
+		pageCount := 0
+		for page := range dres.Pages {
+			if page.Err != nil {
+				t.Errorf("#%d: err: %v", i, page.Err)
+				continue
+			}
+			pageCount += 1
+			itemCount += len(page.Trips)
 		}
 		if g, w := itemCount, tt.wantItemCount; g != w {
 			t.Errorf("#%d: itemCount:: got=%d want=%d", i, g, w)
@@ -1252,6 +1326,8 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return trt.listDeliveriesRoundTrip(req)
 	case listDriverPaymentsRoute:
 		return trt.listDriverPaymentsRoundTrip(req)
+	case listDriverTripsRoute:
+		return trt.listDriverTripsRoundTrip(req)
 	default:
 		return makeResp("Not Found", http.StatusNotFound), nil
 	}
@@ -1466,6 +1542,33 @@ func deliveryListResponsePath(offset int64) string {
 
 func driverPaymentsListResponsePath(offset int64) string {
 	return fmt.Sprintf("./testdata/driver_payments_%d.json", offset)
+}
+
+func driverTripsListResponsePath(offset int64) string {
+	return fmt.Sprintf("./testdata/driver_trips_%d.json", offset)
+}
+
+func (trt *tRoundTripper) listDriverTripsRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	got := req.URL.Path
+	wantSuffix := "/v1/partners/trips"
+	if !strings.HasSuffix(got, wantSuffix) {
+		resp := makeResp(fmt.Sprintf("got=%q wantSuffix=%q", got, wantSuffix), http.StatusBadRequest)
+		return resp, nil
+	}
+	query := req.URL.Query()
+	offset := int64(0)
+	if offsetStr := query.Get("offset"); offsetStr != "" {
+		var err error
+		offset, err = strconv.ParseInt(offsetStr, 10, 32)
+		if err != nil {
+			return makeResp(err.Error(), http.StatusBadRequest), nil
+		}
+	}
+	path := driverTripsListResponsePath(offset)
+	return responseFromFileContent(path), nil
 }
 
 func (trt *tRoundTripper) listDriverPaymentsRoundTrip(req *http.Request) (*http.Response, error) {
@@ -1824,4 +1927,5 @@ const (
 	cancelDeliveryRoute        = "cancel-delivery"
 	listDeliveriesRoute        = "list-deliveries"
 	listDriverPaymentsRoute    = "list-driver-payments"
+	listDriverTripsRoute       = "list-driver-trips"
 )
