@@ -61,6 +61,30 @@ type Trip struct {
 	Pickup          *Endpoint             `json:"pickup,omitempty"`
 	StatusChanges   []*StatusChange       `json:"status_changes,omitempty"`
 	CurrencyCode    CurrencyCode          `json:"currency_code,omitempty"`
+
+	// The values below are exclusively populated
+	// when requested for the current trip or by tripID.
+	Shared bool `json:"shared,omitempty"`
+
+	// Vehicle will only be non-nil during an ongoing trip.
+	Vehicle *Vehicle `json:"vehicle,omitempty"`
+
+	// Driver will only be non-nil during an ongoing trip.
+	Driver *Driver `json:"driver,omitempty"`
+
+	// Location contains the location information
+	// about the driver in the vehicle.
+	Location    *Location `json:"location,omitempty"`
+	Destination *Location `json:"destination,omitempty"`
+
+	Riders []*Profile `json:"riders,omitempty"`
+
+	// Waypoints is the list of waypoints containing:
+	//  + lat/lng of different waypoints
+	//  + the rider involved
+	//  + type of waypoint
+	// It is only returned for shared rides like UberPOOL.
+	Waypoints []*Location `json:"waypoints,omitempty"`
 }
 
 type StatusChange struct {

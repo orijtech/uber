@@ -34,6 +34,86 @@ import (
 	"github.com/orijtech/uber/v1"
 )
 
+var blankTrip = new(uber.Trip)
+
+func TestCurrentTrip(t *testing.T) {
+	authdClient, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	tests := [...]struct {
+		client  *uber.Client
+		wantErr bool
+	}{
+		0: {new(uber.Client), true}, // Must have an authorization token set
+		1: {authdClient, false},
+	}
+
+	for i, tt := range tests {
+		client := tt.client
+		testingRoundTripper := &tRoundTripper{route: currentTripRoute}
+		client.SetHTTPRoundTripper(testingRoundTripper)
+
+		currentTrip, err := client.CurrentTrip()
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: wantErr", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: unexpected err: %v", i, err)
+			continue
+		}
+
+		if reflect.DeepEqual(blankTrip, currentTrip) {
+			t.Errorf("#%d: want a non-blank trip", i)
+		}
+	}
+}
+
+func TestTripByID(t *testing.T) {
+	authdClient, err := uber.NewClient(testToken1)
+	if err != nil {
+		t.Fatalf("initializing client; %v", err)
+	}
+
+	tests := [...]struct {
+		client  *uber.Client
+		tripID  string
+		wantErr bool
+	}{
+		0: {new(uber.Client), "", true}, // Must have an authorization token set
+		1: {authdClient, "a1111c8c-c720-46c3-8534-2fcdd730040d", false},
+		2: {authdClient, "made-up-id", true}, // No such trip
+	}
+
+	testingRoundTripper := &tRoundTripper{route: tripByIDRoute}
+	for i, tt := range tests {
+		client := tt.client
+		client.SetHTTPRoundTripper(testingRoundTripper)
+
+		currentTrip, err := client.TripByID(tt.tripID)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("#%d: wantErr", i)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("#%d: unexpected err: %v", i, err)
+			continue
+		}
+
+		if reflect.DeepEqual(blankTrip, currentTrip) {
+			t.Errorf("#%d: want a non-blank trip", i)
+		}
+	}
+}
+
 func TestListPaymentMethods(t *testing.T) {
 	client, err := uber.NewClient(testToken1)
 	if err != nil {
@@ -1292,6 +1372,10 @@ func (trt *tRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch trt.route {
 	case listPaymentMethods:
 		return trt.listPaymentMethodRoundTrip(req)
+	case currentTripRoute:
+		return trt.currentTripRoundTrip(req)
+	case tripByIDRoute:
+		return trt.tripByIDRoundTrip(req)
 	case listProducts:
 		return trt.listProductsRoundTrip(req)
 	case productByID:
@@ -1803,6 +1887,42 @@ func (trt *tRoundTripper) listPaymentMethodRoundTrip(req *http.Request) (*http.R
 	return resp, nil
 }
 
+func (trt *tRoundTripper) currentTripRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	// Now ensure that the path is /v1.2/requests/current
+	if g, w := req.URL.Path, "/v1.2/requests/current"; !strings.HasSuffix(g, w) {
+		resp := makeResp(fmt.Sprintf("req.URL.Path: got = %q want = %q", g, w), http.StatusBadRequest)
+		return resp, nil
+	}
+	diskPath := "./testdata/trip-current.json"
+	resp := responseFromFileContent(diskPath)
+	return resp, nil
+}
+
+func (trt *tRoundTripper) tripByIDRoundTrip(req *http.Request) (*http.Response, error) {
+	if badAuthResp, _, err := prescreenAuthAndMethod(req, "GET"); badAuthResp != nil || err != nil {
+		return badAuthResp, err
+	}
+	splits := strings.Split(req.URL.Path, "/")
+	// Now ensure that the path is /v1.2/requests/{request_id}
+	slen := len(splits)
+	if len(splits) < 4 || splits[slen-3] != "v1.2" || splits[slen-2] != "requests" {
+		msg := fmt.Sprintf("req.URL.Path: got = %q want = /v1.2/requests/{request_id}", req.URL.Path)
+		resp := makeResp(msg, http.StatusBadRequest)
+		return resp, nil
+	}
+	tripID := splits[slen-1]
+	if len(tripID) == 0 {
+		resp := makeResp("expecting a non-blank tripID", http.StatusBadRequest)
+		return resp, nil
+	}
+	diskPath := fmt.Sprintf("./testdata/trip-%s.json", tripID)
+	resp := responseFromFileContent(diskPath)
+	return resp, nil
+}
+
 func responseFromFileContent(path string) *http.Response {
 	f, err := os.Open(path)
 	if err != nil {
@@ -1928,4 +2048,6 @@ const (
 	listDeliveriesRoute        = "list-deliveries"
 	listDriverPaymentsRoute    = "list-driver-payments"
 	listDriverTripsRoute       = "list-driver-trips"
+	currentTripRoute           = "current-trip"
+	tripByIDRoute              = "trip-by-id"
 )

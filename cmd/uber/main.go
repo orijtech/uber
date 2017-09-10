@@ -117,6 +117,8 @@ func (a *initCmd) Run(args []string, defaults map[string]*flag.Flag) {
 		oauth2.ScopePartnerAccounts,
 		oauth2.ScopePartnerPayments,
 		oauth2.ScopePartnerTrips,
+
+		oauth2.ScopeAllTrips,
 	}
 
 	token, err := oauth2.AuthorizeByEnvApp(scopes...)

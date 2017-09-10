@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 )
 
@@ -251,4 +252,58 @@ type Location struct {
 	Country          string `json:"country,omitempty"`
 
 	ETAMinutes float32 `json:"eta,omitempty"`
+
+	// WaypointType is used to describe Waypoints.
+	// Its values could be:
+	//  + pickup
+	//  + dropoff
+	WaypointType WaypointType `json:"type,omitempty"`
+}
+
+type WaypointType string
+
+const (
+	PickupWaypoint WaypointType = "pickup"
+	Dropoffpoint   WaypointType = "dropoff"
+)
+
+var blankTrip = new(Trip)
+var errBlankTrip = errors.New("expecting a non-blank trip")
+
+// CurrentTrip returns the details of the ongoing trip.
+// It is a privileged method that requires FULL ACCESS when
+// used for all Uber riders. See more information about scopes
+// here https://developer.uber.com/docs/riders/guides/scopes.
+func (c *Client) CurrentTrip() (*Trip, error) {
+	tripURL := fmt.Sprintf("%s/requests/current", c.baseURL())
+	return c.fetchTripByURL(tripURL)
+}
+
+// TripByID returns the details of a trip whose ID is known.
+// It is a privileged method that requires FULL ACCESS when
+// used for all Uber riders. See more information about scopes
+// here https://developer.uber.com/docs/riders/guides/scopes.
+func (c *Client) TripByID(id string) (*Trip, error) {
+	tripURL := fmt.Sprintf("%s/requests/%s", c.baseURL(), id)
+	return c.fetchTripByURL(tripURL)
+}
+
+func (c *Client) fetchTripByURL(tripURL string) (*Trip, error) {
+	req, err := http.NewRequest("GET", tripURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	blob, _, err := c.doAuthAndHTTPReq(req)
+	if err != nil {
+		return nil, err
+	}
+
+	tr := new(Trip)
+	if err := json.Unmarshal(blob, tr); err != nil {
+		return nil, err
+	}
+	if reflect.DeepEqual(tr, blankTrip) {
+		return nil, errBlankTrip
+	}
+	return tr, nil
 }

@@ -309,7 +309,7 @@ func Example_client_OpenMap() {
 		log.Fatal(err)
 	}
 
-	if err := client.OpenMapForTrip("64561dfe-87fa-41d7-807e-f364527b11cb"); err != nil {
+	if err := client.OpenMapForTrip("6468d5f6-c7fc-4a77-8cbc-f0b7c79de1a7"); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -562,5 +562,63 @@ func Example_client_ListDriverTrips() {
 			fmt.Printf("\t%d:: DriverID: %q\nFare: %.2f\n%#v\n", i, trip.DriverID, trip.Fare, trip)
 		}
 		fmt.Println()
+	}
+}
+
+func Example_client_TripByID() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	trip, err := client.TripByID("6468d5f6-c7fc-4a77-8cbc-f0b7c79de1a7")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("ProductID: %s\n", trip.ProductID)
+	fmt.Printf("RequestID: %s\n\n", trip.RequestID)
+	fmt.Printf("Destination: %#v\nPickup: %#v\nDropoff: %#v\n",
+		trip.Destination, trip.Pickup, trip.Dropoff)
+
+	if len(trip.Waypoints) > 0 {
+		fmt.Printf("You have %d Waypoints\n", len(trip.Waypoints))
+		for i, waypoint := range trip.Waypoints {
+			fmt.Printf("\tWaypoint #%d: %v\n", i, waypoint)
+		}
+		fmt.Println()
+	}
+	if len(trip.Riders) > 0 {
+		fmt.Printf("You have %d co-Riders\n", len(trip.Riders))
+		for i, rider := range trip.Riders {
+			fmt.Printf("\tRider #%d: %v\n", i, rider)
+		}
+	}
+}
+
+func Example_client_CurrentTrip() {
+	client, err := uber.NewClientFromOAuth2File(os.ExpandEnv("$HOME/.uber/credentials.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	trip, err := client.CurrentTrip()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("ProductID: %s\n", trip.ProductID)
+	fmt.Printf("RequestID: %s\n\n", trip.RequestID)
+	fmt.Printf("Destination: %#v\nPickup: %#v\nDropoff: %#v\n",
+		trip.Destination, trip.Pickup, trip.Dropoff)
+
+	if len(trip.Waypoints) > 0 {
+		fmt.Printf("You have %d Waypoints\n", len(trip.Waypoints))
+		for i, waypoint := range trip.Waypoints {
+			fmt.Printf("\tWaypoint #%d: %v\n", i, waypoint)
+		}
+		fmt.Println()
+	}
+	if len(trip.Riders) > 0 {
+		fmt.Printf("You have %d co-Riders\n", len(trip.Riders))
+		for i, rider := range trip.Riders {
+			fmt.Printf("\tRider #%d: %v\n", i, rider)
+		}
 	}
 }

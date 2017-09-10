@@ -51,7 +51,12 @@ type Profile struct {
 
 	ActivationStatus ActivationStatus `json:"activation_status,omitempty"`
 
-	DriverID string `json:"driver_id,omitempty"`
+	DriverID otils.NullableString `json:"driver_id,omitempty"`
+	RiderID  otils.NullableString `json:"rider_id,omitempty"`
+
+	// Me if set, signifies that this Profile
+	// is of current authenticated user.
+	Me bool `json:"me,omitempty"`
 }
 
 func (c *Client) RetrieveMyProfile() (*Profile, error) {

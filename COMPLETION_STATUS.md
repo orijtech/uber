@@ -19,10 +19,10 @@ GET /estimates/price|client.EstimatePrice|||Returns an estimated price range for
 GET /estimates/time|client.EstimateTime|✔️||Returns ETAs for all products currently available at a given location. See https://github.com/orijtech/uber/blob/1c064b69c7686b21ee5768468f39b900a2c1e8cb/example_test.go#L150-L186
 GET /requests/estimate|client.UpfrontFare|✔️|Privileged scope, so needs an OAuth2.0 authorized client. This method is needed before you request a ride|Allows retrieve the upfront fare for all products currently available at a given location. See https://github.com/orijtech/uber/blob/1c064b69c7686b21ee5768468f39b900a2c1e8cb/example_test.go#L317-L343
 POST /requests|client.RequestRide|✔️|Privileged scope, OAuth2.0 bearer token with the request scope. Requires you to pass in the FareID retrieved from client.UpfrontFare|See https://github.com/orijtech/uber/blob/1c064b69c7686b21ee5768468f39b900a2c1e8cb/example_test.go#L345-L368
-GET /requests/current||✖️|Unimplemented|Retrieve details of an ongoing trip
+GET /requests/current|client.CurrentTrip|✔️|Requires privileged scope all_trips to be set|Retrieve details of an ongoing trip
 PATCH /requests/current||✖️|Unimplemented|Update an ongoing trip's destination
 DELETE /requests/current||✖️|Unimplemented|Cancel the ongoing trip
-GET /requests/{request_id}|||Unimplemented|Retrieve the details of an ongoing or completed trip that was created by your app
+GET /requests/{request_id}|client.TripByID|✔️|Requires privileged scope all_trips to be set|Retrieve the details of an ongoing or completed trip that was created by your app, by the trip's ID
 PATCH /requests/{request_id}||✖️|Unimplemented|Update the ongoing request's destination using the Ride Request endpoint
 DELETE /requests/{request_id}|||Unimplemented|Cancel the ongoing request on behalf of a rider
 GET /requests/{request_id}/map|client.OpenMap|✔️||This method is only available after a trip has been accepted by a driver and is in the accepted state|Opens up the map for an trip, to give a visual representation of a request. See https://github.com/orijtech/uber/blob/1c064b69c7686b21ee5768468f39b900a2c1e8cb/example_test.go#L306-L315
