@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -226,6 +227,53 @@ func (h *historyCmd) Run(args []string, defaults map[string]*flag.Flag) {
 	}
 }
 
+type profileCmd struct {
+}
+
+var _ command.Cmd = (*profileCmd)(nil)
+
+func (p *profileCmd) Flags(fs *flag.FlagSet) *flag.FlagSet {
+	return fs
+}
+
+func (p *profileCmd) Run(args []string, defaults map[string]*flag.Flag) {
+	credsPath := credsMustExist()
+	uberClient, err := uberClientFromFile(credsPath)
+	exitIfErr(err)
+
+	myProfile, err := uberClient.RetrieveMyProfile()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetRowLine(true)
+	table.SetHeader([]string{"Key", "Value"})
+
+	blob, err := json.Marshal(myProfile)
+	if err != nil {
+		log.Fatalf("serializing profile: %v", err)
+	}
+	kvMap := make(map[string]interface{})
+	if err := json.Unmarshal(blob, &kvMap); err != nil {
+		log.Fatalf("deserializing kvMap: %v", err)
+	}
+
+	keys := make([]string, 0, len(kvMap))
+	for key := range kvMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := kvMap[key]
+		table.Append([]string{
+			key, fmt.Sprintf("%v", value),
+		})
+	}
+	table.Render()
+}
+
 type orderCmd struct {
 }
 
@@ -428,6 +476,7 @@ func main() {
 	command.On("order", "order your uber", &orderCmd{}, nil)
 	command.On("history", "view your trip history", &historyCmd{}, nil)
 	command.On("payments", "list your payments methods", &paymentsCmd{}, nil)
+	command.On("profile", "details about your profile", &profileCmd{}, nil)
 
 	command.ParseAndRun()
 }
