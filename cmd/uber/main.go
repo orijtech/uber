@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -27,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/orijtech/mapbox"
 	"github.com/orijtech/uber/oauth2"
 	"github.com/orijtech/uber/v1"
 
@@ -35,7 +37,6 @@ import (
 	"github.com/odeke-em/cli-spinner"
 	"github.com/odeke-em/command"
 	"github.com/odeke-em/go-utils/fread"
-	"github.com/odeke-em/mapbox"
 	"github.com/odeke-em/semalim"
 )
 
@@ -550,7 +551,7 @@ func doSearch(prompt string, linesChan <-chan string, repeatSentinel string, spi
 		return nil, query, errRepeat
 	}
 	spinr.Start()
-	matches, err := mapboxClient.LookupPlace(query)
+	matches, err := mapboxClient.LookupPlace(context.Background(), query)
 	spinr.Stop()
 	if err != nil {
 		return nil, query, err
