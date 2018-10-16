@@ -258,7 +258,7 @@ func retrieveMyHomeAddress() {
 		log.Fatal(err)
 	}
 
-	place, err := client.Place(uber.AddressHome)
+	place, err := client.Place(uber.PlaceHome)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func retrieveMyWorkAddress() {
 		log.Fatal(err)
 	}
 
-	place, err := client.Place(uber.AddressWork)
+	place, err := client.Place(uber.PlaceWork)
 	if err != nil {
 		log.Fatal(err)
 	}
