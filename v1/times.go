@@ -54,10 +54,6 @@ type TimeEstimatesPage struct {
 	PageNumber uint64
 }
 
-var timeExcludedValues = map[string]bool{
-	"seat_count": true,
-}
-
 func (c *Client) EstimateTime(treq *EstimateRequest) (pagesChan chan *TimeEstimatesPage, cancelPaging func(), err error) {
 	if treq == nil {
 		return nil, nil, errNilTimeEstimateRequest
