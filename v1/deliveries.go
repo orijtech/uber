@@ -141,8 +141,7 @@ type Batch struct {
 }
 
 var (
-	errNilPickup  = errors.New("a non-nil pickup is required")
-	errNilDropoff = errors.New("a non-nil pickup is required")
+	errNilPickup = errors.New("a non-nil pickup is required")
 
 	errNilEndpointLocation = errors.New("a non-nil endpoint.location is required")
 	errNilEndpointContact  = errors.New("a non-nil endpoint.contact is required")

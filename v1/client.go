@@ -169,13 +169,6 @@ func (c *Client) bearerToken() string {
 	return fmt.Sprintf("Bearer %s", c.token)
 }
 
-func (c *Client) tokenToken() string {
-	c.RLock()
-	defer c.RUnlock()
-
-	return fmt.Sprintf("Token %s", c.token)
-}
-
 func (c *Client) doAuthAndHTTPReq(req *http.Request) ([]byte, http.Header, error) {
 	req.Header.Set("Authorization", c.bearerToken())
 	return c.doHTTPReq(req)

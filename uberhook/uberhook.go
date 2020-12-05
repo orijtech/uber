@@ -53,7 +53,6 @@ type Webhook struct {
 var _ authmid.Authenticator = (*Webhook)(nil)
 
 var (
-	errBlankClientID     = errors.New("expecting a non-blank clientID")
 	errBlankClientSecret = errors.New("expecting a non-blank clientSecret")
 )
 

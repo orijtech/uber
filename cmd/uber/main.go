@@ -34,7 +34,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 
-	"github.com/odeke-em/cli-spinner"
+	spinner "github.com/odeke-em/cli-spinner"
 	"github.com/odeke-em/command"
 	"github.com/odeke-em/go-utils/fread"
 	"github.com/odeke-em/semalim"
@@ -79,7 +79,7 @@ func (p *paymentsCmd) Run(args []string, defaults map[string]*flag.Flag) {
 			lastUsedTok = "✔️"
 		}
 		table.Append([]string{
-			fmt.Sprintf("%s", method.PaymentMethod),
+			method.PaymentMethod.String(),
 			method.ID,
 			method.Description,
 			lastUsedTok,
@@ -139,7 +139,9 @@ func (a *initCmd) Run(args []string, defaults map[string]*flag.Flag) {
 		log.Fatal(err)
 	}
 
-	f.Write(blob)
+	if _, err := f.Write(blob); err != nil {
+		log.Fatal(err)
+	}
 	log.Printf("Successfully saved your OAuth2.0 token to %q", credsPath)
 }
 
@@ -217,11 +219,11 @@ func (h *historyCmd) Run(args []string, defaults map[string]*flag.Flag) {
 			endDate := time.Unix(trip.EndTimeUnix, 0)
 			table.Append([]string{
 				fmt.Sprintf("%d", i+1),
-				fmt.Sprintf("%s", startCity.Name),
-				fmt.Sprintf("%s", startDate.Format("2006/01/02 15:04:05 MST")),
-				fmt.Sprintf("%s", endDate.Sub(startDate)),
+				startCity.Name,
+				startDate.Format("2006/01/02 15:04:05 MST"),
+				endDate.Sub(startDate).String(),
 				fmt.Sprintf("%.3f", trip.DistanceMiles),
-				fmt.Sprintf("%s", trip.RequestID),
+				trip.RequestID,
 			})
 		}
 		table.Render()
@@ -373,9 +375,9 @@ func (o *orderCmd) Run(args []string, defaults map[string]*flag.Flag) {
 		ufare := est.UpfrontFare
 		table.Append([]string{
 			fmt.Sprintf("%d", i),
-			fmt.Sprintf("%s", et.LocalizedName),
-			fmt.Sprintf("%s", et.Estimate),
-			fmt.Sprintf("%s", et.CurrencyCode),
+			et.LocalizedName,
+			string(et.Estimate),
+			string(et.CurrencyCode),
 			fmt.Sprintf("%.1f", ufare.PickupEstimateMinutes),
 			fmt.Sprintf("%.1f", et.DurationSeconds/60.0),
 		})
@@ -416,7 +418,9 @@ func (o *orderCmd) Run(args []string, defaults map[string]*flag.Flag) {
 		FareID:         string(estimateChoice.UpfrontFare.Fare.ID),
 		ProductID:      estimateChoice.Estimate.ProductID,
 	}
-	spinr.Start()
+	if err := spinr.Start(); err != nil {
+		log.Fatalf("spinrStart err: %v", err)
+	}
 	rres, err := uberClient.RequestRide(rreq)
 	spinr.Stop()
 	if err != nil {
@@ -437,11 +441,11 @@ func (o *orderCmd) Run(args []string, defaults map[string]*flag.Flag) {
 	}
 
 	dtable.Append([]string{
-		fmt.Sprintf("%s", rres.Status),
+		string(rres.Status),
 		rres.RequestID,
 		rres.Driver.Name,
 		fmt.Sprintf("%d", rres.Driver.Rating),
-		fmt.Sprintf("%s", rres.Driver.PhoneNumber),
+		rres.Driver.PhoneNumber,
 		fmt.Sprintf("%v", rres.Shared),
 		fmt.Sprintf("%.1f", locationDeref(rres.Pickup).ETAMinutes),
 		fmt.Sprintf("%.1f", locationDeref(rres.Destination).ETAMinutes),
@@ -483,7 +487,9 @@ func main() {
 }
 
 func doUberEstimates(uberC *uber.Client, esReq *uber.EstimateRequest, spinr *spinner.Spinner) ([]*estimateAndUpfrontFarePair, error) {
-	spinr.Start()
+	if err := spinr.Start(); err != nil {
+		return nil, err
+	}
 	estimatesPageChan, cancelPaging, err := uberC.EstimatePrice(esReq)
 	spinr.Stop()
 	if err != nil {
@@ -500,7 +506,9 @@ func doUberEstimates(uberC *uber.Client, esReq *uber.EstimateRequest, spinr *spi
 		}
 	}
 
-	spinr.Start()
+	if err := spinr.Start(); err != nil {
+		return nil, err
+	}
 	defer spinr.Stop()
 
 	jobsBench := make(chan semalim.Job)
@@ -550,7 +558,9 @@ func doSearch(prompt string, linesChan <-chan string, repeatSentinel string, spi
 	if query == "" {
 		return nil, query, errRepeat
 	}
-	spinr.Start()
+	if err := spinr.Start(); err != nil {
+		return nil, query, err
+	}
 	matches, err := mapboxClient.LookupPlace(context.Background(), query)
 	spinr.Stop()
 	if err != nil {
@@ -569,7 +579,7 @@ func doSearch(prompt string, linesChan <-chan string, repeatSentinel string, spi
 		coord := centerToCoord(feat.Center)
 		table.Append([]string{
 			fmt.Sprintf("%d", i),
-			fmt.Sprintf("%s", feat.PlaceName),
+			feat.PlaceName,
 			fmt.Sprintf("%.2f%%", feat.Relevance*100),
 			fmt.Sprintf("%f", coord.Lat),
 			fmt.Sprintf("%f", coord.Lng),
@@ -591,12 +601,6 @@ func doSearch(prompt string, linesChan <-chan string, repeatSentinel string, spi
 		return nil, query, fmt.Errorf("choice must be >=0 && < %d", len(matches.Features))
 	}
 	return matches.Features[choice], query, nil
-}
-
-func input() string {
-	var str string
-	fmt.Scanln(os.Stdin, &str)
-	return str
 }
 
 type coord struct {
